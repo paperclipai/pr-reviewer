@@ -8,7 +8,13 @@
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "docker:build": "docker build -t pr-triage .",
+    "docker:sync": "docker run --env-file .env -v \"$(pwd)/data:/data\" pr-triage sync",
+    "docker:list": "docker run --env-file .env -v \"$(pwd)/data:/data\" pr-triage list",
+    "docker:show": "docker run --env-file .env -v \"$(pwd)/data:/data\" pr-triage show",
+    "docker:review": "docker run --env-file .env -v \"$(pwd)/data:/data\" pr-triage review",
+    "dev:web": "npx tsx src/web/server.ts"
   },
   "keywords": [],
   "author": "Dotta",
@@ -16,16 +22,20 @@
   "description": "",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "@hono/node-server": "^1.19.11",
     "@octokit/plugin-paginate-rest": "^14.0.0",
     "@octokit/plugin-throttling": "^11.0.3",
     "@octokit/rest": "^22.0.1",
     "better-sqlite3": "^12.6.2",
     "chalk": "^4.1.2",
     "commander": "^14.0.3",
+    "dotenv": "^17.3.1",
+    "hono": "^4.12.7",
     "p-limit": "^7.3.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260310.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.4.0",
     "typescript": "^5.9.3",

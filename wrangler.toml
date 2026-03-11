@@ -1,0 +1,13 @@
+name = "pr-triage"
+main = "src/web/worker.ts"
+compatibility_date = "2024-12-01"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
+fallthrough = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "pr-triage-db"
+database_id = "75a1a683-e935-4eb8-a0ba-7349529ff692"

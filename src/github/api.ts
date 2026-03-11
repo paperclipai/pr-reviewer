@@ -13,9 +13,12 @@ export function getOctokit(): Octokit {
   if (_octokit) return _octokit;
 
   const config = loadConfig();
+  if (!config.GITHUB_TOKEN) {
+    console.warn('No GITHUB_TOKEN set — using unauthenticated API (60 req/hr). Set GITHUB_TOKEN for 5,000 req/hr.');
+  }
 
   _octokit = new ThrottledOctokit({
-    auth: config.GITHUB_TOKEN,
+    ...(config.GITHUB_TOKEN ? { auth: config.GITHUB_TOKEN } : {}),
     throttle: {
       onRateLimit: (retryAfter: number, options: any, octokit: any, retryCount: number) => {
         octokit.log.warn(`Rate limit hit for ${options.method} ${options.url}`);

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
 import { Command } from 'commander';
 import { syncPullRequests } from './github/sync';
 import { listCandidates, getPRDetail, FilterOptions } from './scoring/filter';
@@ -24,7 +25,7 @@ program
       console.error(`Sync failed: ${err.message}`);
       process.exit(1);
     } finally {
-      closeDb();
+      await closeDb();
     }
   });
 
@@ -35,7 +36,7 @@ program
   .option('--ci <status>', 'Filter by CI status (passing|failing|pending)')
   .option('--no-conflicts', 'Exclude PRs with merge conflicts')
   .option('--limit <n>', 'Max PRs to show', parseInt)
-  .action((opts) => {
+  .action(async (opts) => {
     try {
       const filterOpts: FilterOptions = {};
       if (opts.minScore) filterOpts.minScore = opts.minScore;
@@ -43,23 +44,23 @@ program
       if (opts.conflicts === false) filterOpts.noConflicts = true;
       if (opts.limit) filterOpts.limit = opts.limit;
 
-      const candidates = listCandidates(filterOpts);
+      const candidates = await listCandidates(filterOpts);
       displayTable(candidates);
     } catch (err: any) {
       console.error(`List failed: ${err.message}`);
       process.exit(1);
     } finally {
-      closeDb();
+      await closeDb();
     }
   });
 
 program
   .command('show <pr-number>')
   .description('Show detail for a specific PR')
-  .action((prNumberStr) => {
+  .action(async (prNumberStr) => {
     try {
       const prNumber = parseInt(prNumberStr, 10);
-      const detail = getPRDetail(prNumber);
+      const detail = await getPRDetail(prNumber);
       if (!detail) {
         console.error(`PR #${prNumber} not found. Run 'sync' first.`);
         process.exit(1);
@@ -69,7 +70,7 @@ program
       console.error(`Show failed: ${err.message}`);
       process.exit(1);
     } finally {
-      closeDb();
+      await closeDb();
     }
   });
 
@@ -100,7 +101,7 @@ program
       console.error(`Review failed: ${err.message}`);
       process.exit(1);
     } finally {
-      closeDb();
+      await closeDb();
     }
   });
 

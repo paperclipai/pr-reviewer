@@ -94,6 +94,18 @@ describe('parseGreptileScores', () => {
     expect(scores).toHaveLength(0);
   });
 
+  it('parses HTML h3 format from greptile bot', () => {
+    const comments = [{
+      id: 900,
+      user: { login: 'greptile-apps[bot]' },
+      body: '<h3>Greptile Summary</h3>\nSome review\n<h3>Confidence Score: 4/5</h3>\nMore details',
+      created_at: '2024-01-01T00:00:00Z',
+    }];
+    const scores = parseGreptileScores(comments);
+    expect(scores).toHaveLength(1);
+    expect(scores[0].confidenceScore).toBe(4);
+  });
+
   it('handles empty body', () => {
     const comments = [{
       id: 800,

@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+DATA_DIR="${SCRIPT_DIR}/data"
+IMAGE_NAME="pr-triage"
+
+# Ensure data directory exists
+mkdir -p "$DATA_DIR"
+
+# Build if image doesn't exist
+if ! docker image inspect "$IMAGE_NAME" &>/dev/null; then
+  echo "Building pr-triage image..."
+  docker build -t "$IMAGE_NAME" "$SCRIPT_DIR"
+fi
+
+exec docker run --rm \
+  --env-file "${SCRIPT_DIR}/.env" \
+  -v "${DATA_DIR}:/data" \
+  "$IMAGE_NAME" \
+  "$@"

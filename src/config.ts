@@ -2,10 +2,24 @@ import { z } from 'zod';
 import path from 'path';
 
 const configSchema = z.object({
-  GITHUB_TOKEN: z.string().min(1, 'GITHUB_TOKEN is required'),
-  ANTHROPIC_API_KEY: z.string().min(1, 'ANTHROPIC_API_KEY is required'),
+  GITHUB_TOKEN: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  DB_BACKEND: z.enum(['sqlite', 'd1']).default('sqlite'),
+  // SQLite config
   DB_PATH: z.string().default('./data/pr-triage.db'),
-});
+  // D1 config (required when DB_BACKEND=d1)
+  D1_ACCOUNT_ID: z.string().optional(),
+  D1_DATABASE_ID: z.string().optional(),
+  D1_API_TOKEN: z.string().optional(),
+}).refine(
+  (data) => {
+    if (data.DB_BACKEND === 'd1') {
+      return !!data.D1_ACCOUNT_ID && !!data.D1_DATABASE_ID && !!data.D1_API_TOKEN;
+    }
+    return true;
+  },
+  { message: 'D1_ACCOUNT_ID, D1_DATABASE_ID, and D1_API_TOKEN are required when DB_BACKEND=d1' }
+);
 
 export type Config = z.infer<typeof configSchema>;
 
@@ -21,7 +35,6 @@ export function loadConfig(): Config {
     process.exit(1);
   }
 
-  // Resolve DB_PATH to absolute
   const config = result.data;
   config.DB_PATH = path.resolve(config.DB_PATH);
 

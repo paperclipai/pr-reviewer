@@ -13,6 +13,9 @@ let _client: Anthropic | null = null;
 function getClient(): Anthropic {
   if (_client) return _client;
   const config = loadConfig();
+  if (!config.ANTHROPIC_API_KEY) {
+    throw new Error('ANTHROPIC_API_KEY is required for LLM reviews. Add it to .env');
+  }
   _client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
   return _client;
 }
@@ -25,9 +28,9 @@ export interface ReviewResult {
 }
 
 export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
-  const db = getDb();
+  const db = await getDb();
 
-  const pr = db.prepare('SELECT * FROM pull_requests WHERE number = ?').get(prNumber) as any;
+  const pr = await db.get('SELECT * FROM pull_requests WHERE number = ?', [prNumber]);
   if (!pr) {
     console.error(chalk.red(`PR #${prNumber} not found in database. Run 'sync' first.`));
     return null;
@@ -35,17 +38,14 @@ export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
 
   console.log(chalk.blue(`Reviewing PR #${prNumber}: ${pr.title}`));
 
-  // Sanitize PR content
   const { sections, boundaries } = sanitizePRContent({
     title: pr.title,
     body: pr.body,
   });
 
-  // Build prompts
   const systemPrompt = buildSystemPrompt(boundaries);
   const userPrompt = buildUserPrompt(prNumber, sections);
 
-  // Call LLM
   const client = getClient();
   const response = await client.messages.create({
     model: MODEL,
@@ -59,7 +59,6 @@ export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
     .map(block => (block as any).text)
     .join('');
 
-  // Validate output for hijacking
   const validation = validateOutput(rawOutput);
   if (!validation.valid) {
     console.warn(chalk.yellow(`Warning: Output validation flags for PR #${prNumber}:`));
@@ -68,10 +67,8 @@ export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
     }
   }
 
-  // Parse JSON response
   let review: ReviewResult;
   try {
-    // Extract JSON from response (may be wrapped in markdown code blocks)
     const jsonMatch = rawOutput.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON found in response');
     review = JSON.parse(jsonMatch[0]);
@@ -81,11 +78,10 @@ export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
     return null;
   }
 
-  // Store in DB
-  db.prepare(`
+  await db.run(`
     INSERT INTO llm_reviews (pr_number, review_json, model, prompt_version)
     VALUES (?, ?, ?, ?)
-  `).run(prNumber, JSON.stringify(review), MODEL, PROMPT_VERSION);
+  `, [prNumber, JSON.stringify(review), MODEL, PROMPT_VERSION]);
 
   console.log(chalk.green(`Review complete for PR #${prNumber}`));
   console.log(`  Recommendation: ${review.recommendation}`);
@@ -96,7 +92,7 @@ export async function reviewPR(prNumber: number): Promise<ReviewResult | null> {
 }
 
 export async function reviewTopCandidates(options: FilterOptions & { top: number }): Promise<void> {
-  const candidates = listCandidates({ ...options, limit: options.top });
+  const candidates = await listCandidates({ ...options, limit: options.top });
 
   if (candidates.length === 0) {
     console.log(chalk.yellow('No candidates match the given filters.'));

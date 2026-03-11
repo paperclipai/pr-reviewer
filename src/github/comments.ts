@@ -1,5 +1,6 @@
 const GREPTILE_BOT_LOGIN = 'greptile-apps[bot]';
-const CONFIDENCE_REGEX = /###\s*Confidence\s+Score:\s*(\d)\s*\/\s*5/i;
+// Matches both markdown (### Confidence Score: X/5) and HTML (<h3>Confidence Score: X/5</h3>)
+const CONFIDENCE_REGEX = /(?:###|<h3>)\s*Confidence\s+Score:\s*(\d)\s*\/\s*5/i;
 
 export interface GreptileScore {
   commentId: number;

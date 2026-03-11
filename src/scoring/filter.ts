@@ -1,5 +1,5 @@
 import { getDb } from '../db/client';
-import { CIStatus, aggregateCheckStatus } from '../github/checks';
+import { CIStatus } from '../github/checks';
 
 export interface PRCandidate {
   number: number;
@@ -22,12 +22,10 @@ export interface FilterOptions {
 function computeCompositeScore(greptileScore: number | null, ciStatus: CIStatus, hasConflicts: boolean): number {
   let score = 0;
 
-  // Greptile component: 0-50 (score 1-5 mapped to 10-50)
   if (greptileScore !== null) {
     score += greptileScore * 10;
   }
 
-  // CI component: 0-30
   switch (ciStatus) {
     case 'passing': score += 30; break;
     case 'pending': score += 15; break;
@@ -35,45 +33,40 @@ function computeCompositeScore(greptileScore: number | null, ciStatus: CIStatus,
     case 'failing': score += 0; break;
   }
 
-  // Conflicts: +/-20
   score += hasConflicts ? -20 : 20;
 
   return Math.max(0, Math.min(100, score));
 }
 
-export function listCandidates(options: FilterOptions = {}): PRCandidate[] {
-  const db = getDb();
+function deriveCIStatus(totalChecks: number, failedChecks: number, pendingChecks: number): CIStatus {
+  if (totalChecks === 0) return 'unknown';
+  if (failedChecks > 0) return 'failing';
+  if (pendingChecks > 0) return 'pending';
+  return 'passing';
+}
 
-  // Fetch all PRs with their best greptile score
-  const rows = db.prepare(`
-    SELECT
-      pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.created_at,
-      (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score
-    FROM pull_requests pr
-    ORDER BY pr.number DESC
-  `).all() as Array<{
+export async function listCandidates(options: FilterOptions = {}): Promise<PRCandidate[]> {
+  const db = await getDb();
+
+  // Single query: join PRs with aggregated greptile scores and check run status
+  const rows = await db.all<{
     number: number; title: string; author: string;
     mergeable: number | null; mergeable_state: string | null;
     created_at: string; greptile_score: number | null;
-  }>;
-
-  // Fetch check runs per PR for CI status
-  const checkStmt = db.prepare(`
-    SELECT name, status, conclusion, updated_at FROM check_runs WHERE pr_number = ?
+    total_checks: number; failed_checks: number; pending_checks: number;
+  }>(`
+    SELECT
+      pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.created_at,
+      (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
+      (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
+      (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
+      (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks
+    FROM pull_requests pr
+    ORDER BY pr.number DESC
   `);
 
   let candidates: PRCandidate[] = rows.map(row => {
-    const checks = checkStmt.all(row.number) as Array<{
-      name: string; status: string; conclusion: string | null; updated_at: string;
-    }>;
-
-    const ciStatus = aggregateCheckStatus(checks.map(c => ({
-      name: c.name,
-      status: c.status,
-      conclusion: c.conclusion,
-      updatedAt: c.updated_at,
-    })));
-
+    const ciStatus = deriveCIStatus(row.total_checks, row.failed_checks, row.pending_checks);
     const hasConflicts = row.mergeable === 0 || row.mergeable_state === 'dirty';
 
     return {
@@ -88,7 +81,6 @@ export function listCandidates(options: FilterOptions = {}): PRCandidate[] {
     };
   });
 
-  // Apply filters
   if (options.minScore !== undefined) {
     candidates = candidates.filter(c => c.greptileScore !== null && c.greptileScore >= options.minScore!);
   }
@@ -99,7 +91,6 @@ export function listCandidates(options: FilterOptions = {}): PRCandidate[] {
     candidates = candidates.filter(c => !c.hasConflicts);
   }
 
-  // Sort by composite score descending
   candidates.sort((a, b) => b.compositeScore - a.compositeScore);
 
   if (options.limit) {
@@ -109,15 +100,15 @@ export function listCandidates(options: FilterOptions = {}): PRCandidate[] {
   return candidates;
 }
 
-export function getPRDetail(prNumber: number) {
-  const db = getDb();
+export async function getPRDetail(prNumber: number) {
+  const db = await getDb();
 
-  const pr = db.prepare('SELECT * FROM pull_requests WHERE number = ?').get(prNumber) as any;
+  const pr = await db.get('SELECT * FROM pull_requests WHERE number = ?', [prNumber]);
   if (!pr) return null;
 
-  const scores = db.prepare('SELECT * FROM greptile_scores WHERE pr_number = ? ORDER BY created_at DESC').all(prNumber);
-  const checks = db.prepare('SELECT * FROM check_runs WHERE pr_number = ?').all(prNumber);
-  const reviews = db.prepare('SELECT * FROM llm_reviews WHERE pr_number = ? ORDER BY created_at DESC').all(prNumber);
+  const scores = await db.all('SELECT * FROM greptile_scores WHERE pr_number = ? ORDER BY created_at DESC', [prNumber]);
+  const checks = await db.all('SELECT * FROM check_runs WHERE pr_number = ?', [prNumber]);
+  const reviews = await db.all('SELECT * FROM llm_reviews WHERE pr_number = ? ORDER BY created_at DESC', [prNumber]);
 
   return { pr, scores, checks, reviews };
 }

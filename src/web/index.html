@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PR Triage — paperclipai/paperclip</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --border: #30363d;
+    --text: #e6edf3; --text-muted: #8b949e; --text-dim: #484f58;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff;
+    --radius: 6px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .header h1 { font-size: 20px; font-weight: 600; }
+  .header h1 span { color: var(--text-muted); font-weight: 400; }
+
+  .stats { display: flex; gap: 24px; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+
+  .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .filters label { font-size: 13px; color: var(--text-muted); }
+  .filters select, .filters input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: var(--radius); font-size: 13px; }
+  .filters input[type="number"] { width: 60px; }
+  .filters input[type="checkbox"] { width: auto; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead { position: sticky; top: 0; }
+  th { background: var(--surface); text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--text-muted); cursor: pointer; user-select: none; white-space: nowrap; }
+  th:hover { color: var(--text); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: var(--surface); }
+  tr.clickable { cursor: pointer; }
+
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
+  .badge-red { background: rgba(248,81,73,0.15); color: var(--red); }
+  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
+  .badge-gray { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+
+  .score-bar { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: 13px; }
+  .score-high { color: var(--green); }
+  .score-mid { color: var(--yellow); }
+  .score-low { color: var(--red); }
+
+  .title-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  /* Detail view */
+  .detail { display: none; }
+  .detail.active { display: block; }
+  .list-view.hidden { display: none; }
+
+  .back-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; margin-bottom: 16px; }
+  .back-btn:hover { border-color: var(--text-muted); }
+
+  .detail-header { margin-bottom: 24px; }
+  .detail-header h2 { font-size: 24px; margin-bottom: 4px; }
+  .detail-header .meta { color: var(--text-muted); font-size: 14px; }
+
+  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
+  .card h3 { font-size: 14px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
+  .card-full { grid-column: 1 / -1; }
+
+  .prop { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+  .prop-label { color: var(--text-muted); }
+
+  .review-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
+  .review-block .rec { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+
+  .description { white-space: pre-wrap; font-size: 13px; color: var(--text-muted); max-height: 300px; overflow-y: auto; }
+
+  .empty { text-align: center; padding: 48px; color: var(--text-muted); }
+  .loading { text-align: center; padding: 48px; color: var(--text-muted); }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>PR Triage <span>paperclipai/paperclip</span></h1>
+  <div class="stats" id="stats"></div>
+</div>
+
+<div class="container">
+  <!-- List View -->
+  <div class="list-view" id="listView">
+    <div class="filters">
+      <label>Min Score
+        <select id="filterMinScore">
+          <option value="">Any</option>
+          <option value="1">1+</option>
+          <option value="2">2+</option>
+          <option value="3">3+</option>
+          <option value="4">4+</option>
+          <option value="5">5</option>
+        </select>
+      </label>
+      <label>CI
+        <select id="filterCI">
+          <option value="">Any</option>
+          <option value="passing">Passing</option>
+          <option value="failing">Failing</option>
+          <option value="pending">Pending</option>
+        </select>
+      </label>
+      <label>
+        <input type="checkbox" id="filterNoConflicts"> No conflicts
+      </label>
+      <label>Limit
+        <input type="number" id="filterLimit" value="50" min="1" max="500">
+      </label>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th data-sort="number">#</th>
+          <th data-sort="title">Title</th>
+          <th data-sort="author">Author</th>
+          <th data-sort="greptileScore">Greptile</th>
+          <th data-sort="ciStatus">CI</th>
+          <th data-sort="hasConflicts">Conflicts</th>
+          <th data-sort="compositeScore">Score</th>
+        </tr>
+      </thead>
+      <tbody id="prTable"></tbody>
+    </table>
+    <div class="loading" id="loading">Loading...</div>
+  </div>
+
+  <!-- Detail View -->
+  <div class="detail" id="detailView">
+    <button class="back-btn" onclick="showList()">&larr; Back to list</button>
+    <div id="detailContent"></div>
+  </div>
+</div>
+
+<script>
+let prs = [];
+let sortKey = 'compositeScore';
+let sortDir = -1; // -1 = desc
+
+async function loadStats() {
+  const res = await fetch('/api/stats');
+  const s = await res.json();
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="stat-value">${s.totalPRs}</div><div class="stat-label">Open PRs</div></div>
+    <div class="stat"><div class="stat-value">${s.withGreptileScores}</div><div class="stat-label">Greptile Scored</div></div>
+    <div class="stat"><div class="stat-value">${s.llmReviewed}</div><div class="stat-label">LLM Reviewed</div></div>
+    ${s.lastSyncAt ? `<div class="stat"><div class="stat-value" style="font-size:14px">${new Date(s.lastSyncAt + 'Z').toLocaleString()}</div><div class="stat-label">Last Sync</div></div>` : ''}
+  `;
+}
+
+async function loadPRs() {
+  const params = new URLSearchParams();
+  const minScore = document.getElementById('filterMinScore').value;
+  const ci = document.getElementById('filterCI').value;
+  const noConflicts = document.getElementById('filterNoConflicts').checked;
+  const limit = document.getElementById('filterLimit').value;
+
+  if (minScore) params.set('minScore', minScore);
+  if (ci) params.set('ci', ci);
+  if (noConflicts) params.set('noConflicts', 'true');
+  if (limit) params.set('limit', limit);
+
+  document.getElementById('loading').style.display = 'block';
+  const res = await fetch('/api/prs?' + params);
+  prs = await res.json();
+  document.getElementById('loading').style.display = 'none';
+  renderTable();
+}
+
+function renderTable() {
+  const sorted = [...prs].sort((a, b) => {
+    let av = a[sortKey], bv = b[sortKey];
+    if (av === null) av = -1;
+    if (bv === null) bv = -1;
+    if (typeof av === 'string') return sortDir * av.localeCompare(bv);
+    return sortDir * (av - bv);
+  });
+
+  const tbody = document.getElementById('prTable');
+  if (sorted.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty">No PRs match filters</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = sorted.map(pr => `
+    <tr class="clickable" onclick="showDetail(${pr.number})">
+      <td><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" onclick="event.stopPropagation()">#${pr.number}</a></td>
+      <td class="title-cell">${esc(pr.title)}</td>
+      <td>${esc(pr.author)}</td>
+      <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">—</span>'}</td>
+      <td>${ciBadge(pr.ciStatus)}</td>
+      <td>${pr.hasConflicts ? '<span class="badge badge-red">yes</span>' : '<span class="badge badge-green">no</span>'}</td>
+      <td><span class="score-bar ${pr.compositeScore >= 70 ? 'score-high' : pr.compositeScore >= 40 ? 'score-mid' : 'score-low'}">${pr.compositeScore}</span></td>
+    </tr>
+  `).join('');
+}
+
+function ciBadge(status) {
+  const map = { passing: 'badge-green', failing: 'badge-red', pending: 'badge-yellow', unknown: 'badge-gray' };
+  return `<span class="badge ${map[status] || 'badge-gray'}">${status}</span>`;
+}
+
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s || '';
+  return d.innerHTML;
+}
+
+async function showDetail(number) {
+  window.location.hash = `/pr/${number}`;
+  document.getElementById('listView').classList.add('hidden');
+  const detail = document.getElementById('detailView');
+  detail.classList.add('active');
+  detail.querySelector('#detailContent').innerHTML = '<div class="loading">Loading...</div>';
+
+  const res = await fetch(`/api/prs/${number}`);
+  if (!res.ok) { detail.querySelector('#detailContent').innerHTML = '<div class="empty">PR not found</div>'; return; }
+  const d = await res.json();
+  const pr = d.pr;
+
+  detail.querySelector('#detailContent').innerHTML = `
+    <div class="detail-header">
+      <h2><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank">#${pr.number}</a> ${esc(pr.title)}</h2>
+      <div class="meta">by ${esc(pr.author)} · created ${new Date(pr.created_at).toLocaleDateString()} · updated ${new Date(pr.updated_at).toLocaleDateString()}</div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Status</h3>
+        <div class="prop"><span class="prop-label">Mergeable</span><span>${pr.mergeable === null ? 'unknown' : pr.mergeable ? '<span class="badge badge-green">yes</span>' : '<span class="badge badge-red">no</span>'}</span></div>
+        <div class="prop"><span class="prop-label">State</span><span>${esc(pr.mergeable_state) || 'unknown'}</span></div>
+        <div class="prop"><span class="prop-label">Head SHA</span><span style="font-family:monospace;font-size:12px">${esc(pr.head_sha?.slice(0, 8))}</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Greptile Scores</h3>
+        ${d.scores.length ? d.scores.map(s => `
+          <div class="prop">
+            <span class="score-bar ${s.confidence_score >= 4 ? 'score-high' : s.confidence_score >= 3 ? 'score-mid' : 'score-low'}">${s.confidence_score}/5</span>
+            <span style="font-size:12px;color:var(--text-muted)">${new Date(s.created_at).toLocaleDateString()}</span>
+          </div>
+        `).join('') : '<div style="color:var(--text-muted)">No scores</div>'}
+      </div>
+
+      <div class="card">
+        <h3>Check Runs</h3>
+        ${d.checks.length ? d.checks.map(c => `
+          <div class="prop">
+            <span>${esc(c.name)}</span>
+            ${ciBadge(c.conclusion === 'success' ? 'passing' : c.status === 'completed' ? 'failing' : 'pending')}
+          </div>
+        `).join('') : '<div style="color:var(--text-muted)">No checks</div>'}
+      </div>
+
+      <div class="card">
+        <h3>LLM Reviews</h3>
+        ${d.reviews.length ? d.reviews.map(r => `
+          <div class="review-block">
+            <div class="rec">${recBadge(r.review.recommendation)} <span style="font-size:12px;color:var(--text-muted)">${esc(r.model)} v${esc(r.prompt_version)}</span></div>
+            <div class="prop"><span class="prop-label">Risk</span><span>${riskBadge(r.review.risk_level)}</span></div>
+            <div class="prop"><span class="prop-label">Summary</span><span>${esc(r.review.summary)}</span></div>
+            ${r.review.reasoning ? `<div style="margin-top:8px;font-size:13px;color:var(--text-muted)">${esc(r.review.reasoning)}</div>` : ''}
+          </div>
+        `).join('') : '<div style="color:var(--text-muted)">Not yet reviewed</div>'}
+      </div>
+
+      ${pr.body ? `<div class="card card-full"><h3>Description</h3><div class="description">${esc(pr.body)}</div></div>` : ''}
+    </div>
+  `;
+}
+
+function recBadge(rec) {
+  const map = { approve: 'badge-green', request_changes: 'badge-red', needs_discussion: 'badge-yellow' };
+  return `<span class="badge ${map[rec] || 'badge-gray'}">${rec || 'unknown'}</span>`;
+}
+
+function riskBadge(risk) {
+  const map = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red', critical: 'badge-red' };
+  return `<span class="badge ${map[risk] || 'badge-gray'}">${risk || 'unknown'}</span>`;
+}
+
+function showList() {
+  window.location.hash = '/';
+  document.getElementById('listView').classList.remove('hidden');
+  document.getElementById('detailView').classList.remove('active');
+}
+
+// Column sort
+document.querySelectorAll('th[data-sort]').forEach(th => {
+  th.addEventListener('click', () => {
+    const key = th.dataset.sort;
+    if (sortKey === key) sortDir *= -1;
+    else { sortKey = key; sortDir = -1; }
+    renderTable();
+  });
+});
+
+// Filter changes
+['filterMinScore', 'filterCI', 'filterNoConflicts', 'filterLimit'].forEach(id => {
+  document.getElementById(id).addEventListener('change', loadPRs);
+});
+
+// Hash routing
+function handleHash() {
+  const hash = window.location.hash;
+  const match = hash.match(/^#\/pr\/(\d+)$/);
+  if (match) showDetail(parseInt(match[1]));
+  else showList();
+}
+window.addEventListener('hashchange', handleHash);
+
+// Init
+loadStats();
+loadPRs().then(() => handleHash());
+</script>
+</body>
+</html>
