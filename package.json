@@ -1,0 +1,34 @@
+{
+  "name": "pr-reviewer",
+  "version": "1.0.0",
+  "main": "dist/cli.js",
+  "bin": {
+    "pr-triage": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [],
+  "author": "Dotta",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@octokit/plugin-paginate-rest": "^14.0.0",
+    "@octokit/plugin-throttling": "^11.0.3",
+    "@octokit/rest": "^22.0.1",
+    "better-sqlite3": "^12.6.2",
+    "chalk": "^4.1.2",
+    "commander": "^14.0.3",
+    "p-limit": "^7.3.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^25.4.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}
