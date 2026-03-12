@@ -8,6 +8,7 @@ export interface PRCandidate {
   greptileScore: number | null;
   ciStatus: CIStatus;
   hasConflicts: boolean;
+  humanComments: number;
   compositeScore: number;
   createdAt: string;
 }
@@ -19,21 +20,28 @@ export interface FilterOptions {
   limit?: number;
 }
 
-function computeCompositeScore(greptileScore: number | null, ciStatus: CIStatus, hasConflicts: boolean): number {
+function computeCompositeScore(greptileScore: number | null, ciStatus: CIStatus, hasConflicts: boolean, humanComments: number): number {
   let score = 0;
 
+  // Greptile: 0-40 (score 1-5 mapped to 8-40)
   if (greptileScore !== null) {
-    score += greptileScore * 10;
+    score += greptileScore * 8;
   }
 
+  // CI: 0-25
   switch (ciStatus) {
-    case 'passing': score += 30; break;
-    case 'pending': score += 15; break;
-    case 'unknown': score += 10; break;
+    case 'passing': score += 25; break;
+    case 'pending': score += 12; break;
+    case 'unknown': score += 8; break;
     case 'failing': score += 0; break;
   }
 
-  score += hasConflicts ? -20 : 20;
+  // Conflicts: +/-15
+  score += hasConflicts ? -15 : 15;
+
+  // Human comments: 0-20 (1 comment = 10, 2+ = 20)
+  if (humanComments >= 2) score += 20;
+  else if (humanComments === 1) score += 10;
 
   return Math.max(0, Math.min(100, score));
 }
@@ -48,19 +56,20 @@ function deriveCIStatus(totalChecks: number, failedChecks: number, pendingChecks
 export async function listCandidates(options: FilterOptions = {}): Promise<PRCandidate[]> {
   const db = await getDb();
 
-  // Single query: join PRs with aggregated greptile scores and check run status
   const rows = await db.all<{
     number: number; title: string; author: string;
     mergeable: number | null; mergeable_state: string | null;
     created_at: string; greptile_score: number | null;
     total_checks: number; failed_checks: number; pending_checks: number;
+    human_comments: number;
   }>(`
     SELECT
       pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.created_at,
       (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
       (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
       (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
-      (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks
+      (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks,
+      (SELECT COUNT(*) FROM pr_comments pc WHERE pc.pr_number = pr.number AND pc.author NOT LIKE '%[bot]') as human_comments
     FROM pull_requests pr
     ORDER BY pr.number DESC
   `);
@@ -76,7 +85,8 @@ export async function listCandidates(options: FilterOptions = {}): Promise<PRCan
       greptileScore: row.greptile_score,
       ciStatus,
       hasConflicts,
-      compositeScore: computeCompositeScore(row.greptile_score, ciStatus, hasConflicts),
+      humanComments: row.human_comments,
+      compositeScore: computeCompositeScore(row.greptile_score, ciStatus, hasConflicts, row.human_comments),
       createdAt: row.created_at,
     };
   });

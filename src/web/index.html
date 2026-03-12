@@ -19,6 +19,12 @@
   .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
   .header h1 { font-size: 20px; font-weight: 600; }
   .header h1 span { color: var(--text-muted); font-weight: 400; }
+  .header h1 a { color: inherit; text-decoration: none; }
+  .header h1 a:hover { text-decoration: none; }
+
+  .nav { display: flex; gap: 16px; align-items: center; }
+  .nav a { font-size: 14px; padding: 6px 12px; border-radius: var(--radius); }
+  .nav a.active { background: rgba(88,166,255,0.15); }
 
   .stats { display: flex; gap: 24px; }
   .stat { text-align: center; }
@@ -54,10 +60,17 @@
 
   .title-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  /* Detail view */
-  .detail { display: none; }
-  .detail.active { display: block; }
-  .list-view.hidden { display: none; }
+  .ci-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+  .ci-dot-green { background: var(--green); }
+  .ci-dot-red { background: var(--red); }
+  .ci-dot-yellow { background: var(--yellow); }
+  .ci-dot-gray { background: var(--text-muted); }
+
+  .label-badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-right: 3px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); }
+  .labels-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .page { display: none; }
+  .page.active { display: block; }
 
   .back-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; margin-bottom: 16px; }
   .back-btn:hover { border-color: var(--text-muted); }
@@ -81,19 +94,52 @@
 
   .empty { text-align: center; padding: 48px; color: var(--text-muted); }
   .loading { text-align: center; padding: 48px; color: var(--text-muted); }
+
+  .pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; padding: 12px 0; }
+  .pagination button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; }
+  .pagination button:hover:not(:disabled) { border-color: var(--text-muted); }
+  .pagination button:disabled { opacity: 0.4; cursor: default; }
+  .pagination .page-info { font-size: 13px; color: var(--text-muted); }
+
+  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
+  .search-bar input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius); font-size: 14px; }
+  .search-bar button { background: var(--blue); color: #fff; border: none; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-size: 14px; }
+  .search-bar button:hover { opacity: 0.9; }
+
+  .search-group { margin-bottom: 16px; }
+  .search-group-header { font-weight: 600; margin-bottom: 8px; font-size: 15px; }
+  .search-match { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 6px; font-size: 13px; }
+  .search-match .match-meta { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
+  .search-match .match-body { white-space: pre-wrap; max-height: 120px; overflow-y: auto; color: var(--text); }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <h1>PR Triage <span>paperclipai/paperclip</span></h1>
+  <h1><a href="#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
+  <div class="nav">
+    <a href="#/" id="navList">PRs</a>
+    <a href="#/search" id="navSearch">Search</a>
+  </div>
   <div class="stats" id="stats"></div>
 </div>
 
 <div class="container">
-  <!-- List View -->
-  <div class="list-view" id="listView">
+  <!-- List Page -->
+  <div class="page" id="listPage">
+    <div class="search-bar" style="margin-bottom:12px">
+      <input type="text" id="listSearchInput" placeholder="Search comments (BM25)... e.g. &quot;database migration&quot; or &quot;auth OR oauth&quot;">
+      <button onclick="doSearchFromList()">Search</button>
+    </div>
     <div class="filters">
+      <label>State
+        <select id="filterState">
+          <option value="open" selected>Open</option>
+          <option value="merged">Merged</option>
+          <option value="closed">Closed</option>
+          <option value="all">All</option>
+        </select>
+      </label>
       <label>Min Score
         <select id="filterMinScore">
           <option value="">Any</option>
@@ -115,9 +161,6 @@
       <label>
         <input type="checkbox" id="filterNoConflicts"> No conflicts
       </label>
-      <label>Limit
-        <input type="number" id="filterLimit" value="50" min="1" max="500">
-      </label>
     </div>
 
     <table>
@@ -128,88 +171,226 @@
           <th data-sort="author">Author</th>
           <th data-sort="greptileScore">Greptile</th>
           <th data-sort="ciStatus">CI</th>
+          <th>Labels</th>
           <th data-sort="hasConflicts">Conflicts</th>
+          <th data-sort="humanComments">Comments</th>
           <th data-sort="compositeScore">Score</th>
+          <th data-sort="lastActivity">Updated</th>
         </tr>
       </thead>
       <tbody id="prTable"></tbody>
     </table>
     <div class="loading" id="loading">Loading...</div>
+    <div class="pagination" id="pagination" style="display:none">
+      <button id="prevPage">&larr; Prev</button>
+      <span class="page-info" id="pageInfo"></span>
+      <button id="nextPage">Next &rarr;</button>
+    </div>
   </div>
 
-  <!-- Detail View -->
-  <div class="detail" id="detailView">
-    <button class="back-btn" onclick="showList()">&larr; Back to list</button>
+  <!-- Detail Page -->
+  <div class="page" id="detailPage">
+    <button class="back-btn" onclick="navigate('/')">&larr; Back to list</button>
     <div id="detailContent"></div>
+  </div>
+
+  <!-- Search Page -->
+  <div class="page search-page" id="searchPage">
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="Search comments (BM25)... e.g. &quot;database migration&quot; or &quot;auth OR oauth&quot;">
+      <button onclick="doSearch()">Search</button>
+    </div>
+    <div id="searchResults"></div>
   </div>
 </div>
 
 <script>
-let prs = [];
+let allPRs = [];
 let sortKey = 'compositeScore';
-let sortDir = -1; // -1 = desc
+let sortDir = -1;
+const PAGE_SIZE = 25;
+let currentPage = 1;
 
+// --- Routing ---
+function navigate(path) {
+  window.location.hash = path;
+}
+
+function parseHash() {
+  const hash = window.location.hash.slice(1) || '/';
+  if (hash.startsWith('/pr/')) {
+    const num = parseInt(hash.slice(4));
+    return isNaN(num) ? { page: 'list' } : { page: 'detail', pr: num };
+  }
+  if (hash.startsWith('/search')) {
+    const qIdx = hash.indexOf('?');
+    const params = qIdx >= 0 ? new URLSearchParams(hash.slice(qIdx + 1)) : null;
+    return { page: 'search', q: params?.get('q') || '' };
+  }
+  return { page: 'list' };
+}
+
+function showPage(name) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(name + 'Page').classList.add('active');
+  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
+  if (name === 'list' || name === 'detail') document.getElementById('navList').classList.add('active');
+  if (name === 'search') document.getElementById('navSearch').classList.add('active');
+}
+
+async function handleRoute() {
+  const route = parseHash();
+  if (route.page === 'detail') {
+    showPage('detail');
+    await showDetail(route.pr);
+  } else if (route.page === 'search') {
+    showPage('search');
+    if (route.q) {
+      document.getElementById('searchInput').value = route.q;
+      await executeSearch(route.q);
+    }
+  } else {
+    showPage('list');
+    if (allPRs.length === 0) await loadPRs();
+  }
+}
+
+window.addEventListener('hashchange', handleRoute);
+
+// --- Stats ---
 async function loadStats() {
   const res = await fetch('/api/stats');
   const s = await res.json();
   document.getElementById('stats').innerHTML = `
     <div class="stat"><div class="stat-value">${s.totalPRs}</div><div class="stat-label">Open PRs</div></div>
+    <div class="stat"><div class="stat-value">${s.mergedPRs || 0}</div><div class="stat-label">Merged</div></div>
+    <div class="stat"><div class="stat-value">${s.closedPRs || 0}</div><div class="stat-label">Closed</div></div>
     <div class="stat"><div class="stat-value">${s.withGreptileScores}</div><div class="stat-label">Greptile Scored</div></div>
+    <div class="stat"><div class="stat-value">${s.totalComments || 0}</div><div class="stat-label">Comments</div></div>
     <div class="stat"><div class="stat-value">${s.llmReviewed}</div><div class="stat-label">LLM Reviewed</div></div>
     ${s.lastSyncAt ? `<div class="stat"><div class="stat-value" style="font-size:14px">${new Date(s.lastSyncAt + 'Z').toLocaleString()}</div><div class="stat-label">Last Sync</div></div>` : ''}
   `;
 }
 
+// --- PR List ---
 async function loadPRs() {
   const params = new URLSearchParams();
+  const state = document.getElementById('filterState').value;
   const minScore = document.getElementById('filterMinScore').value;
   const ci = document.getElementById('filterCI').value;
   const noConflicts = document.getElementById('filterNoConflicts').checked;
-  const limit = document.getElementById('filterLimit').value;
 
+  params.set('state', state);
   if (minScore) params.set('minScore', minScore);
   if (ci) params.set('ci', ci);
   if (noConflicts) params.set('noConflicts', 'true');
-  if (limit) params.set('limit', limit);
 
   document.getElementById('loading').style.display = 'block';
+  document.getElementById('pagination').style.display = 'none';
   const res = await fetch('/api/prs?' + params);
-  prs = await res.json();
+  allPRs = await res.json();
   document.getElementById('loading').style.display = 'none';
+  currentPage = 1;
   renderTable();
 }
 
-function renderTable() {
-  const sorted = [...prs].sort((a, b) => {
+function getSorted() {
+  return [...allPRs].sort((a, b) => {
     let av = a[sortKey], bv = b[sortKey];
     if (av === null) av = -1;
     if (bv === null) bv = -1;
     if (typeof av === 'string') return sortDir * av.localeCompare(bv);
     return sortDir * (av - bv);
   });
+}
+
+function renderTable() {
+  const sorted = getSorted();
+  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = sorted.slice(start, start + PAGE_SIZE);
 
   const tbody = document.getElementById('prTable');
   if (sorted.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty">No PRs match filters</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">No PRs match filters</td></tr>';
+    document.getElementById('pagination').style.display = 'none';
     return;
   }
 
-  tbody.innerHTML = sorted.map(pr => `
-    <tr class="clickable" onclick="showDetail(${pr.number})">
+  tbody.innerHTML = pageItems.map(pr => `
+    <tr class="clickable" onclick="navigate('/pr/${pr.number}')">
       <td><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" onclick="event.stopPropagation()">#${pr.number}</a></td>
       <td class="title-cell">${esc(pr.title)}</td>
       <td>${esc(pr.author)}</td>
-      <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">—</span>'}</td>
-      <td>${ciBadge(pr.ciStatus)}</td>
+      <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">\u2014</span>'}</td>
+      <td>${ciDot(pr.ciStatus)}</td>
+      <td class="labels-cell">${renderLabels(pr.labels)}</td>
       <td>${pr.hasConflicts ? '<span class="badge badge-red">yes</span>' : '<span class="badge badge-green">no</span>'}</td>
+      <td>${pr.humanComments || 0}</td>
       <td><span class="score-bar ${pr.compositeScore >= 70 ? 'score-high' : pr.compositeScore >= 40 ? 'score-mid' : 'score-low'}">${pr.compositeScore}</span></td>
+      <td style="white-space:nowrap;color:var(--text-muted);font-size:13px" title="${pr.lastActivity || ''}">${timeAgo(pr.lastActivity)}</td>
     </tr>
   `).join('');
+
+  // Pagination controls
+  const pag = document.getElementById('pagination');
+  if (sorted.length > PAGE_SIZE) {
+    pag.style.display = 'flex';
+    document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${sorted.length} PRs)`;
+    document.getElementById('prevPage').disabled = currentPage <= 1;
+    document.getElementById('nextPage').disabled = currentPage >= totalPages;
+  } else {
+    pag.style.display = 'none';
+  }
 }
 
+document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
+document.getElementById('nextPage').addEventListener('click', () => { const totalPages = Math.ceil(allPRs.length / PAGE_SIZE); if (currentPage < totalPages) { currentPage++; renderTable(); } });
+
+// --- Helpers ---
 function ciBadge(status) {
   const map = { passing: 'badge-green', failing: 'badge-red', pending: 'badge-yellow', unknown: 'badge-gray' };
   return `<span class="badge ${map[status] || 'badge-gray'}">${status}</span>`;
+}
+
+function ciDot(status) {
+  const map = { passing: 'ci-dot-green', failing: 'ci-dot-red', pending: 'ci-dot-yellow', unknown: 'ci-dot-gray' };
+  const titles = { passing: 'Passing', failing: 'Failing', pending: 'Pending', unknown: 'Unknown' };
+  return `<span class="ci-dot ${map[status] || 'ci-dot-gray'}" title="${titles[status] || 'Unknown'}"></span>`;
+}
+
+function labelColor(hex) {
+  if (!hex) return { bg: 'rgba(139,148,158,0.15)', fg: 'var(--text-muted)' };
+  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
+  // Use label color as background with transparency, pick light/dark text based on luminance
+  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return { bg: `rgba(${r},${g},${b},0.25)`, fg: lum > 0.5 ? `#${hex}` : `rgba(${Math.min(255,r+80)},${Math.min(255,g+80)},${Math.min(255,b+80)},1)` };
+}
+
+function renderLabels(labels) {
+  if (!labels || labels.length === 0) return '';
+  return labels.slice(0, 3).map(l => {
+    const c = labelColor(l.color);
+    return `<span class="label-badge" style="background:${c.bg};color:${c.fg};border-color:${c.fg}33" title="${esc(l.name)}">${esc(l.name)}</span>`;
+  }).join('');
+}
+
+function timeAgo(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+  const now = Date.now();
+  const sec = Math.floor((now - d.getTime()) / 1000);
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return min + 'm ago';
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return hr + 'h ago';
+  const days = Math.floor(hr / 24);
+  if (days < 30) return days + 'd ago';
+  const months = Math.floor(days / 30);
+  if (months < 12) return months + 'mo ago';
+  return Math.floor(months / 12) + 'y ago';
 }
 
 function esc(s) {
@@ -218,19 +399,30 @@ function esc(s) {
   return d.innerHTML;
 }
 
-async function showDetail(number) {
-  window.location.hash = `/pr/${number}`;
-  document.getElementById('listView').classList.add('hidden');
-  const detail = document.getElementById('detailView');
-  detail.classList.add('active');
-  detail.querySelector('#detailContent').innerHTML = '<div class="loading">Loading...</div>';
+function recBadge(rec) {
+  const map = { approve: 'badge-green', request_changes: 'badge-red', needs_discussion: 'badge-yellow' };
+  return `<span class="badge ${map[rec] || 'badge-gray'}">${rec || 'unknown'}</span>`;
+}
 
-  const res = await fetch(`/api/prs/${number}`);
-  if (!res.ok) { detail.querySelector('#detailContent').innerHTML = '<div class="empty">PR not found</div>'; return; }
+function riskBadge(risk) {
+  const map = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red', critical: 'badge-red' };
+  return `<span class="badge ${map[risk] || 'badge-gray'}">${risk || 'unknown'}</span>`;
+}
+
+// --- Detail ---
+async function showDetail(number) {
+  document.getElementById('detailContent').innerHTML = '<div class="loading">Loading...</div>';
+
+  const [res, commentsRes] = await Promise.all([
+    fetch(`/api/prs/${number}`),
+    fetch(`/api/prs/${number}/comments`),
+  ]);
+  if (!res.ok) { document.getElementById('detailContent').innerHTML = '<div class="empty">PR not found</div>'; return; }
   const d = await res.json();
+  d.comments = commentsRes.ok ? await commentsRes.json() : [];
   const pr = d.pr;
 
-  detail.querySelector('#detailContent').innerHTML = `
+  document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
       <h2><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank">#${pr.number}</a> ${esc(pr.title)}</h2>
       <div class="meta">by ${esc(pr.author)} · created ${new Date(pr.created_at).toLocaleDateString()} · updated ${new Date(pr.updated_at).toLocaleDateString()}</div>
@@ -277,53 +469,85 @@ async function showDetail(number) {
       </div>
 
       ${pr.body ? `<div class="card card-full"><h3>Description</h3><div class="description">${esc(pr.body)}</div></div>` : ''}
+
+      ${d.comments && d.comments.length ? `<div class="card card-full"><h3>Comments (${d.comments.length})</h3>${d.comments.map(cm => `
+        <div class="review-block">
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">${esc(cm.author)} · ${new Date(cm.created_at).toLocaleDateString()}</div>
+          <div class="description" style="max-height:200px">${esc(cm.body)}</div>
+        </div>
+      `).join('')}</div>` : ''}
     </div>
   `;
 }
 
-function recBadge(rec) {
-  const map = { approve: 'badge-green', request_changes: 'badge-red', needs_discussion: 'badge-yellow' };
-  return `<span class="badge ${map[rec] || 'badge-gray'}">${rec || 'unknown'}</span>`;
+// --- Search ---
+function doSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  navigate('/search?q=' + encodeURIComponent(q));
 }
 
-function riskBadge(risk) {
-  const map = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red', critical: 'badge-red' };
-  return `<span class="badge ${map[risk] || 'badge-gray'}">${risk || 'unknown'}</span>`;
+function doSearchFromList() {
+  const q = document.getElementById('listSearchInput').value.trim();
+  if (!q) return;
+  navigate('/search?q=' + encodeURIComponent(q));
 }
 
-function showList() {
-  window.location.hash = '/';
-  document.getElementById('listView').classList.remove('hidden');
-  document.getElementById('detailView').classList.remove('active');
+async function executeSearch(q) {
+  const sr = document.getElementById('searchResults');
+  sr.innerHTML = '<div class="loading">Searching...</div>';
+
+  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=50`);
+  const data = await res.json();
+  if (data.error) { sr.innerHTML = `<div class="empty">${esc(data.error)}</div>`; return; }
+
+  if (data.prs.length === 0) {
+    sr.innerHTML = '<div class="empty">No matches</div>';
+    return;
+  }
+
+  sr.innerHTML = `<div style="color:var(--text-muted);margin-bottom:12px">${data.totalMatches} matches across ${data.prs.length} PRs</div>` +
+    data.prs.map(g => `
+      <div class="search-group">
+        <div class="search-group-header">
+          <a href="#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)}
+        </div>
+        ${g.matches.map(m => `
+          <div class="search-match">
+            <div class="match-meta">${esc(m.author)} · ${new Date(m.created_at).toLocaleDateString()}</div>
+            <div class="match-body">${esc(m.body.length > 500 ? m.body.slice(0, 500) + '...' : m.body)}</div>
+          </div>
+        `).join('')}
+      </div>
+    `).join('');
 }
 
-// Column sort
+document.getElementById('searchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doSearch();
+});
+document.getElementById('listSearchInput').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doSearchFromList();
+});
+
+// --- Column sort ---
 document.querySelectorAll('th[data-sort]').forEach(th => {
   th.addEventListener('click', () => {
     const key = th.dataset.sort;
     if (sortKey === key) sortDir *= -1;
     else { sortKey = key; sortDir = -1; }
+    currentPage = 1;
     renderTable();
   });
 });
 
-// Filter changes
-['filterMinScore', 'filterCI', 'filterNoConflicts', 'filterLimit'].forEach(id => {
+// --- Filter changes ---
+['filterState', 'filterMinScore', 'filterCI', 'filterNoConflicts'].forEach(id => {
   document.getElementById(id).addEventListener('change', loadPRs);
 });
 
-// Hash routing
-function handleHash() {
-  const hash = window.location.hash;
-  const match = hash.match(/^#\/pr\/(\d+)$/);
-  if (match) showDetail(parseInt(match[1]));
-  else showList();
-}
-window.addEventListener('hashchange', handleHash);
-
-// Init
+// --- Init ---
 loadStats();
-loadPRs().then(() => handleHash());
+loadPRs().then(() => handleRoute());
 </script>
 </body>
 </html>

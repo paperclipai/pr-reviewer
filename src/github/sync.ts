@@ -64,15 +64,21 @@ export async function syncPullRequests(): Promise<void> {
         updatedAt: cr.completed_at ?? cr.started_at ?? new Date().toISOString(),
       }));
 
+      // Extract labels (name + color)
+      const labels = (pr.labels || []).map((l: any) => ({
+        name: typeof l === 'string' ? l : l.name,
+        color: typeof l === 'string' ? null : l.color,
+      }));
+
       // Upsert PR
       await db.run(`
-        INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, created_at, updated_at, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+        INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, created_at, updated_at, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, datetime('now'))
         ON CONFLICT(number) DO UPDATE SET
           title=excluded.title, body=excluded.body, author=excluded.author,
           head_sha=excluded.head_sha, mergeable=excluded.mergeable,
-          mergeable_state=excluded.mergeable_state, updated_at=excluded.updated_at,
-          fetched_at=datetime('now')
+          mergeable_state=excluded.mergeable_state, state='open', labels_json=excluded.labels_json,
+          updated_at=excluded.updated_at, fetched_at=datetime('now')
       `, [
         pr.number,
         pr.title,
@@ -81,9 +87,25 @@ export async function syncPullRequests(): Promise<void> {
         pr.head.sha,
         mergeable === null ? null : mergeable ? 1 : 0,
         mergeableState,
+        JSON.stringify(labels),
         pr.created_at,
         pr.updated_at,
       ]);
+
+      // Upsert all comments
+      for (const comment of comments) {
+        if (!comment.body) continue;
+        await db.run(`
+          INSERT INTO pr_comments (comment_id, pr_number, author, body, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(comment_id) DO UPDATE SET
+            body=excluded.body, updated_at=excluded.updated_at
+        `, [comment.id, pr.number, comment.user?.login ?? 'unknown', comment.body, comment.created_at, comment.updated_at]);
+
+        // Keep FTS index in sync
+        await db.run(`INSERT OR REPLACE INTO pr_comments_fts(rowid, body) VALUES (?, ?)`,
+          [comment.id, comment.body]);
+      }
 
       // Upsert greptile scores
       for (const score of scores) {
@@ -114,6 +136,50 @@ export async function syncPullRequests(): Promise<void> {
   }));
 
   await Promise.all(tasks);
+
+  // Detect PRs in DB that are no longer open
+  const openNumbers = new Set(prs.map(p => p.number));
+  const stalePRs = await db.all<{ number: number }>(`SELECT number FROM pull_requests WHERE state = 'open'`);
+  const toCheck = stalePRs.filter(p => !openNumbers.has(p.number));
+
+  if (toCheck.length > 0) {
+    console.log(chalk.blue(`\nChecking ${toCheck.length} PRs no longer open...`));
+    const staleLimit = pLimit(10);
+    let staleCompleted = 0;
+    await Promise.all(toCheck.map(p => staleLimit(async () => {
+      try {
+        const { data } = await octokit.rest.pulls.get({
+          owner: REPO_OWNER, repo: REPO_NAME, pull_number: p.number,
+        });
+        const newState = data.merged ? 'merged' : 'closed';
+        await db.run(`UPDATE pull_requests SET state = ? WHERE number = ?`, [newState, p.number]);
+      } catch {
+        await db.run(`UPDATE pull_requests SET state = 'closed' WHERE number = ?`, [p.number]);
+      }
+      staleCompleted++;
+      process.stdout.write(`\r  ${chalk.green(`${staleCompleted}/${toCheck.length}`)} checked`);
+    })));
+    console.log();
+  }
+
+  // Fetch closed/merged counts via search API
+  console.log(chalk.blue('\nFetching closed/merged PR counts...'));
+  try {
+    const [mergedRes, closedRes] = await Promise.all([
+      octokit.rest.search.issuesAndPullRequests({
+        q: `repo:${REPO_OWNER}/${REPO_NAME} type:pr is:merged`,
+        per_page: 1,
+      }),
+      octokit.rest.search.issuesAndPullRequests({
+        q: `repo:${REPO_OWNER}/${REPO_NAME} type:pr is:closed is:unmerged`,
+        per_page: 1,
+      }),
+    ]);
+    await db.run(`INSERT INTO sync_state (key, value) VALUES ('merged_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [String(mergedRes.data.total_count)]);
+    await db.run(`INSERT INTO sync_state (key, value) VALUES ('closed_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [String(closedRes.data.total_count)]);
+  } catch (err: any) {
+    console.error(chalk.yellow(`Could not fetch closed/merged counts: ${err.message}`));
+  }
 
   await db.run(`
     INSERT INTO sync_state (key, value) VALUES ('last_sync_at', datetime('now'))

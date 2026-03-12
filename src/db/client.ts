@@ -24,6 +24,7 @@ export async function getDb(): Promise<DbClient> {
   }
 
   await _db.exec(getSchema());
+  await runMigrations(_db);
   return _db;
 }
 
@@ -31,6 +32,26 @@ export async function closeDb(): Promise<void> {
   if (_db) {
     await _db.close();
     _db = null;
+  }
+}
+
+async function runMigrations(db: DbClient): Promise<void> {
+  // Add state column to pull_requests if missing (safe to fail if already exists)
+  try {
+    await db.run(`ALTER TABLE pull_requests ADD COLUMN state TEXT NOT NULL DEFAULT 'open'`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    await db.exec(`CREATE INDEX IF NOT EXISTS idx_pr_state ON pull_requests(state)`);
+  } catch {
+    // Index already exists
+  }
+  // Add labels_json column
+  try {
+    await db.run(`ALTER TABLE pull_requests ADD COLUMN labels_json TEXT DEFAULT '[]'`);
+  } catch {
+    // Column already exists
   }
 }
 
@@ -45,6 +66,8 @@ CREATE TABLE IF NOT EXISTS pull_requests (
   head_sha TEXT NOT NULL,
   mergeable INTEGER,
   mergeable_state TEXT,
+  state TEXT NOT NULL DEFAULT 'open',
+  labels_json TEXT DEFAULT '[]',
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
   fetched_at TEXT NOT NULL DEFAULT (datetime('now'))
@@ -83,6 +106,23 @@ CREATE TABLE IF NOT EXISTS llm_reviews (
 );
 
 CREATE INDEX IF NOT EXISTS idx_reviews_pr ON llm_reviews(pr_number);
+
+CREATE TABLE IF NOT EXISTS pr_comments (
+  comment_id INTEGER PRIMARY KEY,
+  pr_number INTEGER NOT NULL REFERENCES pull_requests(number),
+  author TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_pr ON pr_comments(pr_number);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS pr_comments_fts USING fts5(
+  body,
+  content=pr_comments,
+  content_rowid=comment_id
+);
 
 CREATE TABLE IF NOT EXISTS sync_state (
   key TEXT PRIMARY KEY,

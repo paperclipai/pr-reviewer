@@ -39,11 +39,12 @@ export function displayTable(candidates: PRCandidate[]): void {
     pad('Greptile', 9),
     pad('CI', 6),
     pad('Conflicts', 10),
+    pad('Comments', 9),
     pad('Score', 6),
   ].join('');
 
   console.log(chalk.bold(header));
-  console.log(chalk.gray('─'.repeat(105)));
+  console.log(chalk.gray('─'.repeat(114)));
 
   for (const c of candidates) {
     const row = [
@@ -53,6 +54,7 @@ export function displayTable(candidates: PRCandidate[]): void {
       pad(c.greptileScore !== null ? `${c.greptileScore}/5` : '-', 9),
       pad(colorCI(c.ciStatus), 6 + (colorCI(c.ciStatus).length - (c.ciStatus === 'unknown' ? 3 : 4))),
       pad(colorConflicts(c.hasConflicts), 10 + (colorConflicts(c.hasConflicts).length - (c.hasConflicts ? 3 : 2))),
+      pad(String(c.humanComments), 9),
       colorScore(c.compositeScore),
     ].join('');
     console.log(row);
