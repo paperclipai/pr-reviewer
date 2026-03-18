@@ -3,7 +3,7 @@ name: Sync PR Data
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '*/15 * * * *'
 
 permissions:
   contents: read
