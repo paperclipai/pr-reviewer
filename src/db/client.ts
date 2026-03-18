@@ -53,6 +53,14 @@ async function runMigrations(db: DbClient): Promise<void> {
   } catch {
     // Column already exists
   }
+  // Add LOC columns
+  for (const col of ['additions', 'deletions', 'changed_files']) {
+    try {
+      await db.run(`ALTER TABLE pull_requests ADD COLUMN ${col} INTEGER DEFAULT 0`);
+    } catch {
+      // Column already exists
+    }
+  }
 }
 
 function getSchema(): string {

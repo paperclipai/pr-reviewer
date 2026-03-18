@@ -28,6 +28,9 @@ export async function syncPullRequests(): Promise<void> {
     try {
       let mergeable: boolean | null = null;
       let mergeableState: string | null = null;
+      let additions = 0;
+      let deletions = 0;
+      let changedFiles = 0;
 
       for (let attempt = 0; attempt < 3; attempt++) {
         const { data: detail } = await octokit.rest.pulls.get({
@@ -37,6 +40,9 @@ export async function syncPullRequests(): Promise<void> {
         });
         mergeable = detail.mergeable;
         mergeableState = detail.mergeable_state;
+        additions = detail.additions ?? 0;
+        deletions = detail.deletions ?? 0;
+        changedFiles = detail.changed_files ?? 0;
         if (mergeable !== null) break;
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
@@ -72,12 +78,13 @@ export async function syncPullRequests(): Promise<void> {
 
       // Upsert PR
       await db.run(`
-        INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, created_at, updated_at, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, datetime('now'))
+        INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, additions, deletions, changed_files, created_at, updated_at, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(number) DO UPDATE SET
           title=excluded.title, body=excluded.body, author=excluded.author,
           head_sha=excluded.head_sha, mergeable=excluded.mergeable,
           mergeable_state=excluded.mergeable_state, state='open', labels_json=excluded.labels_json,
+          additions=excluded.additions, deletions=excluded.deletions, changed_files=excluded.changed_files,
           updated_at=excluded.updated_at, fetched_at=datetime('now')
       `, [
         pr.number,
@@ -88,6 +95,9 @@ export async function syncPullRequests(): Promise<void> {
         mergeable === null ? null : mergeable ? 1 : 0,
         mergeableState,
         JSON.stringify(labels),
+        additions,
+        deletions,
+        changedFiles,
         pr.created_at,
         pr.updated_at,
       ]);

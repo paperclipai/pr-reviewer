@@ -172,6 +172,7 @@
           <th data-sort="greptileScore">Greptile</th>
           <th data-sort="ciStatus">CI</th>
           <th>Labels</th>
+          <th data-sort="loc">LOC</th>
           <th data-sort="hasConflicts">Conflicts</th>
           <th data-sort="humanComments">Comments</th>
           <th data-sort="compositeScore">Score</th>
@@ -296,7 +297,13 @@ async function loadPRs() {
 
 function getSorted() {
   return [...allPRs].sort((a, b) => {
-    let av = a[sortKey], bv = b[sortKey];
+    let av, bv;
+    if (sortKey === 'loc') {
+      av = (a.additions || 0) + (a.deletions || 0);
+      bv = (b.additions || 0) + (b.deletions || 0);
+    } else {
+      av = a[sortKey]; bv = b[sortKey];
+    }
     if (av === null) av = -1;
     if (bv === null) bv = -1;
     if (typeof av === 'string') return sortDir * av.localeCompare(bv);
@@ -313,7 +320,7 @@ function renderTable() {
 
   const tbody = document.getElementById('prTable');
   if (sorted.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty">No PRs match filters</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="11" class="empty">No PRs match filters</td></tr>';
     document.getElementById('pagination').style.display = 'none';
     return;
   }
@@ -326,6 +333,7 @@ function renderTable() {
       <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">\u2014</span>'}</td>
       <td>${ciDot(pr.ciStatus)}</td>
       <td class="labels-cell">${renderLabels(pr.labels)}</td>
+      <td style="white-space:nowrap;font-size:13px"><span style="color:#3fb950">+${pr.additions || 0}</span> <span style="color:#f85149">-${pr.deletions || 0}</span></td>
       <td>${pr.hasConflicts ? '<span class="badge badge-red">yes</span>' : '<span class="badge badge-green">no</span>'}</td>
       <td>${pr.humanComments || 0}</td>
       <td><span class="score-bar ${pr.compositeScore >= 70 ? 'score-high' : pr.compositeScore >= 40 ? 'score-mid' : 'score-low'}">${pr.compositeScore}</span></td>

@@ -65,6 +65,9 @@ function buildCandidate(row: any) {
     hasConflicts,
     humanComments: row.human_comments,
     compositeScore: computeCompositeScore(row.greptile_score, ciStatus, hasConflicts, row.human_comments),
+    additions: row.additions ?? 0,
+    deletions: row.deletions ?? 0,
+    changedFiles: row.changed_files ?? 0,
     createdAt: row.created_at,
     lastActivity: row.last_activity,
   };
@@ -72,7 +75,9 @@ function buildCandidate(row: any) {
 
 const PR_SELECT = `
   SELECT
-    pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.state, pr.labels_json, pr.created_at, pr.updated_at,
+    pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.state, pr.labels_json,
+    pr.additions, pr.deletions, pr.changed_files,
+    pr.created_at, pr.updated_at,
     (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
     (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
     (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
@@ -137,6 +142,9 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         break;
       case 'comments':
         candidates.sort((a, b) => b.humanComments - a.humanComments);
+        break;
+      case 'loc':
+        candidates.sort((a, b) => (b.additions + b.deletions) - (a.additions + a.deletions));
         break;
       case 'score':
       default:
