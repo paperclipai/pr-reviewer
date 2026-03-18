@@ -1,5 +1,6 @@
 import { getOctokit, REPO_OWNER, REPO_NAME } from './api';
 import { getDb } from '../db/client';
+import { BatchStatement } from '../db/types';
 import { parseGreptileScores } from './comments';
 import { CheckRun } from './checks';
 import chalk from 'chalk';
@@ -17,34 +18,68 @@ export async function syncPullRequests(): Promise<void> {
     per_page: 100,
   });
 
-  console.log(chalk.blue(`Found ${prs.length} open PRs. Syncing details...`));
+  console.log(chalk.blue(`Found ${prs.length} open PRs. Checking for changes...`));
+
+  // --- Incremental sync: load cached timestamps & head SHAs ---
+  const cachedRows = await db.all<{ number: number; updated_at: string; head_sha: string; mergeable: number | null; mergeable_state: string | null }>(
+    `SELECT number, updated_at, head_sha, mergeable, mergeable_state FROM pull_requests WHERE state = 'open'`
+  );
+  const cached = new Map(cachedRows.map(r => [r.number, r]));
 
   const pLimit = (await import('p-limit')).default;
   const limit = pLimit(10);
 
   let completed = 0;
+  let skipped = 0;
 
   const tasks = prs.map(pr => limit(async () => {
     try {
+      const existing = cached.get(pr.number);
+
+      // Skip detail fetch if the PR hasn't changed since last sync
+      if (existing && existing.updated_at === pr.updated_at) {
+        skipped++;
+        completed++;
+        process.stdout.write(`\r  ${chalk.green(`${completed}/${prs.length}`)} synced (${chalk.yellow(`${skipped} skipped`)})`);
+        return;
+      }
+
       let mergeable: boolean | null = null;
       let mergeableState: string | null = null;
       let additions = 0;
       let deletions = 0;
       let changedFiles = 0;
 
-      for (let attempt = 0; attempt < 3; attempt++) {
+      // Only call pulls.get (with retry) when head_sha changed; otherwise reuse cached mergeable
+      const headShaChanged = !existing || existing.head_sha !== pr.head.sha;
+
+      if (headShaChanged) {
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const { data: detail } = await octokit.rest.pulls.get({
+            owner: REPO_OWNER,
+            repo: REPO_NAME,
+            pull_number: pr.number,
+          });
+          mergeable = detail.mergeable;
+          mergeableState = detail.mergeable_state;
+          additions = detail.additions ?? 0;
+          deletions = detail.deletions ?? 0;
+          changedFiles = detail.changed_files ?? 0;
+          if (mergeable !== null) break;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      } else {
+        // head_sha unchanged — reuse cached mergeable, still fetch detail once for LOC stats
         const { data: detail } = await octokit.rest.pulls.get({
           owner: REPO_OWNER,
           repo: REPO_NAME,
           pull_number: pr.number,
         });
-        mergeable = detail.mergeable;
-        mergeableState = detail.mergeable_state;
+        mergeable = existing.mergeable === null ? null : existing.mergeable === 1;
+        mergeableState = existing.mergeable_state;
         additions = detail.additions ?? 0;
         deletions = detail.deletions ?? 0;
         changedFiles = detail.changed_files ?? 0;
-        if (mergeable !== null) break;
-        await new Promise(resolve => setTimeout(resolve, 1000));
       }
 
       const comments = await octokit.paginate(octokit.rest.issues.listComments, {
@@ -76,69 +111,78 @@ export async function syncPullRequests(): Promise<void> {
         color: typeof l === 'string' ? null : l.color,
       }));
 
+      // --- Batch all DB writes for this PR ---
+      const batch: BatchStatement[] = [];
+
       // Upsert PR
-      await db.run(`
-        INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, additions, deletions, changed_files, created_at, updated_at, fetched_at)
+      batch.push({
+        sql: `INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, additions, deletions, changed_files, created_at, updated_at, fetched_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(number) DO UPDATE SET
           title=excluded.title, body=excluded.body, author=excluded.author,
           head_sha=excluded.head_sha, mergeable=excluded.mergeable,
           mergeable_state=excluded.mergeable_state, state='open', labels_json=excluded.labels_json,
           additions=excluded.additions, deletions=excluded.deletions, changed_files=excluded.changed_files,
-          updated_at=excluded.updated_at, fetched_at=datetime('now')
-      `, [
-        pr.number,
-        pr.title,
-        pr.body ?? null,
-        pr.user?.login ?? 'unknown',
-        pr.head.sha,
-        mergeable === null ? null : mergeable ? 1 : 0,
-        mergeableState,
-        JSON.stringify(labels),
-        additions,
-        deletions,
-        changedFiles,
-        pr.created_at,
-        pr.updated_at,
-      ]);
+          updated_at=excluded.updated_at, fetched_at=datetime('now')`,
+        params: [
+          pr.number,
+          pr.title,
+          pr.body ?? null,
+          pr.user?.login ?? 'unknown',
+          pr.head.sha,
+          mergeable === null ? null : mergeable ? 1 : 0,
+          mergeableState,
+          JSON.stringify(labels),
+          additions,
+          deletions,
+          changedFiles,
+          pr.created_at,
+          pr.updated_at,
+        ],
+      });
 
-      // Upsert all comments
+      // Upsert comments + FTS
       for (const comment of comments) {
         if (!comment.body) continue;
-        await db.run(`
-          INSERT INTO pr_comments (comment_id, pr_number, author, body, created_at, updated_at)
+        batch.push({
+          sql: `INSERT INTO pr_comments (comment_id, pr_number, author, body, created_at, updated_at)
           VALUES (?, ?, ?, ?, ?, ?)
           ON CONFLICT(comment_id) DO UPDATE SET
-            body=excluded.body, updated_at=excluded.updated_at
-        `, [comment.id, pr.number, comment.user?.login ?? 'unknown', comment.body, comment.created_at, comment.updated_at]);
-
-        // Keep FTS index in sync
-        await db.run(`INSERT OR REPLACE INTO pr_comments_fts(rowid, body) VALUES (?, ?)`,
-          [comment.id, comment.body]);
+            body=excluded.body, updated_at=excluded.updated_at`,
+          params: [comment.id, pr.number, comment.user?.login ?? 'unknown', comment.body, comment.created_at, comment.updated_at],
+        });
+        batch.push({
+          sql: `INSERT OR REPLACE INTO pr_comments_fts(rowid, body) VALUES (?, ?)`,
+          params: [comment.id, comment.body],
+        });
       }
 
       // Upsert greptile scores
       for (const score of scores) {
-        await db.run(`
-          INSERT INTO greptile_scores (pr_number, comment_id, confidence_score, comment_body, created_at)
+        batch.push({
+          sql: `INSERT INTO greptile_scores (pr_number, comment_id, confidence_score, comment_body, created_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(comment_id) DO UPDATE SET
-            confidence_score=excluded.confidence_score, comment_body=excluded.comment_body
-        `, [pr.number, score.commentId, score.confidenceScore, score.commentBody, score.createdAt]);
+            confidence_score=excluded.confidence_score, comment_body=excluded.comment_body`,
+          params: [pr.number, score.commentId, score.confidenceScore, score.commentBody, score.createdAt],
+        });
       }
 
       // Upsert check runs
       for (const check of checks) {
-        await db.run(`
-          INSERT INTO check_runs (pr_number, name, status, conclusion, updated_at)
+        batch.push({
+          sql: `INSERT INTO check_runs (pr_number, name, status, conclusion, updated_at)
           VALUES (?, ?, ?, ?, ?)
           ON CONFLICT(pr_number, name) DO UPDATE SET
-            status=excluded.status, conclusion=excluded.conclusion, updated_at=excluded.updated_at
-        `, [pr.number, check.name, check.status, check.conclusion, check.updatedAt]);
+            status=excluded.status, conclusion=excluded.conclusion, updated_at=excluded.updated_at`,
+          params: [pr.number, check.name, check.status, check.conclusion, check.updatedAt],
+        });
       }
 
+      await db.runBatch(batch);
+
       completed++;
-      process.stdout.write(`\r  ${chalk.green(`${completed}/${prs.length}`)} synced`);
+      process.stdout.write(`\r  ${chalk.green(`${completed}/${prs.length}`)} synced (${chalk.yellow(`${skipped} skipped`)})`);
     } catch (err: any) {
       completed++;
       console.error(chalk.red(`\nError syncing PR #${pr.number}: ${err.message}`));
@@ -196,5 +240,6 @@ export async function syncPullRequests(): Promise<void> {
     ON CONFLICT(key) DO UPDATE SET value=datetime('now')
   `);
 
-  console.log(chalk.green(`\nSync complete. ${completed} PRs processed.`));
+  const synced = completed - skipped;
+  console.log(chalk.green(`\nSync complete. ${synced} PRs synced, ${skipped} unchanged (skipped).`));
 }

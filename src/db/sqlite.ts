@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
-import { DbClient } from './client';
+import { DbClient, BatchStatement } from './client';
 
 export class SqliteClient implements DbClient {
   private db: Database.Database;
@@ -19,6 +19,16 @@ export class SqliteClient implements DbClient {
 
   async run(sql: string, params: any[] = []): Promise<void> {
     this.db.prepare(sql).run(...params);
+  }
+
+  async runBatch(statements: BatchStatement[]): Promise<void> {
+    if (statements.length === 0) return;
+    const tx = this.db.transaction(() => {
+      for (const stmt of statements) {
+        this.db.prepare(stmt.sql).run(...stmt.params);
+      }
+    });
+    tx();
   }
 
   async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {

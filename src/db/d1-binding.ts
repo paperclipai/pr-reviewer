@@ -1,4 +1,4 @@
-import type { DbClient } from './types';
+import type { DbClient, BatchStatement } from './types';
 
 /**
  * D1 adapter using native Worker binding — no API token needed.
@@ -9,6 +9,11 @@ export class D1BindingClient implements DbClient {
 
   async run(sql: string, params: any[] = []): Promise<void> {
     await this.d1.prepare(sql).bind(...params).run();
+  }
+
+  async runBatch(statements: BatchStatement[]): Promise<void> {
+    if (statements.length === 0) return;
+    await this.d1.batch(statements.map(s => this.d1.prepare(s.sql).bind(...s.params)));
   }
 
   async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {

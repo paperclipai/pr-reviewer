@@ -1,7 +1,7 @@
 import { loadConfig } from '../config';
-import type { DbClient } from './types';
+import type { DbClient, BatchStatement } from './types';
 
-export type { DbClient };
+export type { DbClient, BatchStatement };
 
 let _db: DbClient | null = null;
 

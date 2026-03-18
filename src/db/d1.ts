@@ -1,4 +1,4 @@
-import { DbClient } from './client';
+import { DbClient, BatchStatement } from './client';
 
 interface D1Response {
   success: boolean;
@@ -44,6 +44,26 @@ export class D1Client implements DbClient {
 
   async run(sql: string, params: any[] = []): Promise<void> {
     await this.query(sql, params);
+  }
+
+  async runBatch(statements: BatchStatement[]): Promise<void> {
+    if (statements.length === 0) return;
+
+    const response = await fetch(`${this.baseUrl}/query`, {
+      method: 'POST',
+      headers: this.headers,
+      body: JSON.stringify(statements.map(s => ({ sql: s.sql, params: s.params }))),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(`D1 batch error (${response.status}): ${text}`);
+    }
+
+    const data = await response.json() as D1Response;
+    if (!data.success) {
+      throw new Error(`D1 batch error: ${data.errors.map(e => e.message).join(', ')}`);
+    }
   }
 
   async get<T = any>(sql: string, params: any[] = []): Promise<T | null> {
