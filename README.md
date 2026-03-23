@@ -40,3 +40,5 @@ The contributor score considers:
 ### Tuning the algorithm
 
 All scoring constants, thresholds, and logic live in [`src/scoring.ts`](src/scoring.ts). To adjust how PRs are ranked, that's the only file you need to change.
+
+> **Keep docs in sync:** If you change the scoring algorithm in `src/scoring.ts`, update this README to match. The two should always agree.
