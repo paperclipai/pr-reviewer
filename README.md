@@ -4,6 +4,29 @@ The PR triage dashboard for [paperclipai/paperclip](https://github.com/paperclip
 
 **Live dashboard:** https://pr-triage.bippadotta.workers.dev
 
+## Deploying
+
+The dashboard runs as a Cloudflare Worker with a D1 database. Merges to `master` are automatically deployed via CI — manual deploys are only needed for initial setup or debugging.
+
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+2. Create a `.dev.vars` file in the project root with your Cloudflare credentials:
+   ```
+   CLOUDFLARE_API_TOKEN=your-api-token
+   CLOUDFLARE_ACCOUNT_ID=your-account-id
+   ```
+
+   To create an API token, go to https://dash.cloudflare.com/profile/api-tokens and create a Custom Token with **Workers Scripts: Edit** and **D1: Edit** permissions.
+
+3. Deploy:
+   ```bash
+   npx wrangler deploy
+   ```
+
+`.dev.vars` is gitignored and should never be committed.
 ## How scoring works
 
 Every PR receives a **composite score from 0 to 180**, built from ten signals. The goal is to surface PRs that are most likely to be worth reviewing right now — small, well-tested PRs from reliable contributors with passing CI will naturally float to the top.
