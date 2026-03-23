@@ -2,6 +2,7 @@ node_modules/
 dist/
 data/
 .env
+.dev.vars
 *.db
 *.db-wal
 *.db-shm
