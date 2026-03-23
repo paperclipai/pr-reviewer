@@ -553,7 +553,7 @@ async function showDetail(number) {
         ${similar.length > 0 ? `
           <table class="similar-table">
             <thead><tr>
-              <th>#</th><th>Title</th><th>Author</th><th>Similarity</th><th>Files</th><th>Title</th><th>Body</th><th>Relationship</th><th>Created</th>
+              <th>#</th><th>Title</th><th>Author</th><th>Score</th><th>Similarity</th><th>Files</th><th>Title</th><th>Body</th><th>Relationship</th><th>Created</th>
             </tr></thead>
             <tbody>
               ${similar.map(s => {
@@ -567,6 +567,7 @@ async function showDetail(number) {
                   <td><a href="#/pr/${s.number}" onclick="event.stopPropagation()">#${s.number}</a> <a href="https://github.com/paperclipai/paperclip/pull/${s.number}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-dim)">[gh]</a></td>
                   <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</td>
                   <td>${esc(s.author)}</td>
+                  <td><span class="score-bar ${s.score >= 100 ? 'score-high' : s.score >= 65 ? 'score-mid' : 'score-low'}">${s.score}</span></td>
                   <td><span class="sim-bar" style="width:${Math.round(s.overallScore * 60)}px"></span> ${Math.round(s.overallScore * 100)}%</td>
                   <td>${fileLabel}</td>
                   <td>${Math.round(s.titleSimilarity * 100)}%</td>

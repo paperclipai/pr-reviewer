@@ -363,8 +363,15 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     );
     if (!pr) return c.json({ error: 'PR not found' }, 404);
 
-    const others = await db.all<{ number: number; title: string; body: string | null; author: string; created_at: string }>(
-      'SELECT number, title, body, author, created_at FROM pull_requests WHERE number != ?', [prNumber]
+    const others = await db.all<{ number: number; title: string; body: string | null; author: string; created_at: string; greptile_score: number | null; total_checks: number; failed_checks: number; pending_checks: number; human_comments: number; additions: number | null; deletions: number | null; mergeable: number | null; mergeable_state: string | null }>(
+      `SELECT pr.number, pr.title, pr.body, pr.author, pr.created_at,
+        pr.additions, pr.deletions, pr.mergeable, pr.mergeable_state,
+        (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
+        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
+        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
+        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks,
+        (SELECT COUNT(*) FROM pr_comments pc WHERE pc.pr_number = pr.number AND pc.author NOT LIKE '%[bot]') as human_comments
+      FROM pull_requests pr WHERE pr.number != ?`, [prNumber]
     );
 
     const srcFiles = await db.all<{ filename: string }>(
@@ -396,7 +403,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
 
     const simResults: Array<{
       number: number; title: string; author: string; created_at: string;
-      titleSimilarity: number; bodySimilarity: number; fileSimilarity: number;
+      score: number; titleSimilarity: number; bodySimilarity: number; fileSimilarity: number;
       overallScore: number; sharedFiles: number;
       potentialCopy: boolean; relationship: string;
     }> = [];
@@ -441,11 +448,16 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         relationship = 'similar topic';
       }
 
+      const otherCiStatus = deriveCIStatus(other.total_checks, other.failed_checks, other.pending_checks);
+      const otherHasConflicts = other.mergeable === 0 || other.mergeable_state === 'dirty';
+      const prScore = computeBaseScore(other.greptile_score, otherCiStatus, otherHasConflicts, other.human_comments, other.additions ?? 0, other.deletions ?? 0);
+
       simResults.push({
         number: other.number,
         title: other.title,
         author: other.author,
         created_at: other.created_at,
+        score: prScore,
         titleSimilarity: Math.round(titleSim * 100) / 100,
         bodySimilarity: Math.round(bodySim * 100) / 100,
         fileSimilarity: Math.round(fileSim * 100) / 100,
