@@ -1,5 +1,7 @@
 import { getDb } from '../db/client';
-import { CIStatus } from '../github/checks';
+import { deriveCIStatus, locScore, computeBaseScore, type CIStatus } from '../scoring';
+
+export type { CIStatus };
 
 export interface PRCandidate {
   number: number;
@@ -18,50 +20,6 @@ export interface FilterOptions {
   ci?: 'passing' | 'failing' | 'pending';
   noConflicts?: boolean;
   limit?: number;
-}
-
-function locScore(additions: number, deletions: number): number {
-  const totalLoc = additions + deletions;
-  if (totalLoc === 0) return 15;
-  // Logarithmic decay: small PRs get ~15, large PRs approach 0
-  // At 50 LOC: ~12, at 200 LOC: ~8, at 1000 LOC: ~3, at 5000 LOC: ~0
-  return Math.max(0, Math.round(15 - 3 * Math.log10(totalLoc)));
-}
-
-function computeCompositeScore(greptileScore: number | null, ciStatus: CIStatus, hasConflicts: boolean, humanComments: number, additions: number = 0, deletions: number = 0): number {
-  let score = 0;
-
-  // Greptile: 0-40 (score 1-5 mapped to 8-40)
-  if (greptileScore !== null) {
-    score += greptileScore * 8;
-  }
-
-  // CI: 0-25
-  switch (ciStatus) {
-    case 'passing': score += 25; break;
-    case 'pending': score += 12; break;
-    case 'unknown': score += 8; break;
-    case 'failing': score += 0; break;
-  }
-
-  // Conflicts: +/-15
-  score += hasConflicts ? -15 : 15;
-
-  // Human comments: 0-20 (1 comment = 10, 2+ = 20)
-  if (humanComments >= 2) score += 20;
-  else if (humanComments === 1) score += 10;
-
-  // LOC: 0-15 (fewer changes = higher score)
-  score += locScore(additions, deletions);
-
-  return Math.max(0, Math.min(115, score));
-}
-
-function deriveCIStatus(totalChecks: number, failedChecks: number, pendingChecks: number): CIStatus {
-  if (totalChecks === 0) return 'unknown';
-  if (failedChecks > 0) return 'failing';
-  if (pendingChecks > 0) return 'pending';
-  return 'passing';
 }
 
 export async function listCandidates(options: FilterOptions = {}): Promise<PRCandidate[]> {
@@ -98,7 +56,7 @@ export async function listCandidates(options: FilterOptions = {}): Promise<PRCan
       ciStatus,
       hasConflicts,
       humanComments: row.human_comments,
-      compositeScore: computeCompositeScore(row.greptile_score, ciStatus, hasConflicts, row.human_comments, row.additions ?? 0, row.deletions ?? 0),
+      compositeScore: computeBaseScore(row.greptile_score, ciStatus, hasConflicts, row.human_comments, row.additions ?? 0, row.deletions ?? 0),
       createdAt: row.created_at,
     };
   });
