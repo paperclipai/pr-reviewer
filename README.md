@@ -28,6 +28,8 @@ The dashboard runs as a Cloudflare Worker with a D1 database.
 
 `.dev.vars` is gitignored and should never be committed.
 
+Merges to `master` are automatically deployed via CI — manual deploys are only needed for initial setup or debugging.
+
 ## How scoring works
 
 Every PR receives a **composite score from 0 to 180**, built from ten signals. The goal is to surface PRs that are most likely to be worth reviewing right now — small, well-tested PRs from reliable contributors with passing CI will naturally float to the top.
