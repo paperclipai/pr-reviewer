@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- Git/PR merge icon: two branches merging -->
+  <circle cx="16" cy="16" r="15" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+  <!-- Source branch line -->
+  <line x1="10" y1="8" x2="10" y2="18" stroke="#8b949e" stroke-width="2" stroke-linecap="round"/>
+  <!-- Merge curve -->
+  <path d="M10 18 Q10 24 16 24" stroke="#8b949e" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- Target branch line -->
+  <line x1="22" y1="8" x2="22" y2="24" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+  <!-- Merge arrow -->
+  <path d="M16 24 L22 24" stroke="#3fb950" stroke-width="2" stroke-linecap="round"/>
+  <!-- Source dot -->
+  <circle cx="10" cy="7" r="3" fill="#161b22" stroke="#8b949e" stroke-width="1.5"/>
+  <!-- Target top dot -->
+  <circle cx="22" cy="7" r="3" fill="#161b22" stroke="#3fb950" stroke-width="1.5"/>
+  <!-- Merge point dot -->
+  <circle cx="22" cy="24" r="3" fill="#3fb950"/>
+</svg>
