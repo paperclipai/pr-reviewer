@@ -6,7 +6,7 @@ import { createApp } from './app';
 import { getDb, closeDb } from '../db/client';
 import { syncPullRequests } from '../github/sync';
 
-// Read HTML at startup
+// Read static assets at startup
 const htmlPath = join(__dirname, '..', '..', 'src', 'web', 'index.html');
 let html: string;
 try {
@@ -15,7 +15,14 @@ try {
   html = readFileSync(join(__dirname, 'index.html'), 'utf-8');
 }
 
-const app = createApp(getDb, html);
+let faviconSvg: string | undefined;
+try {
+  faviconSvg = readFileSync(join(__dirname, '..', '..', 'src', 'web', 'favicon.svg'), 'utf-8');
+} catch {
+  try { faviconSvg = readFileSync(join(__dirname, 'favicon.svg'), 'utf-8'); } catch {}
+}
+
+const app = createApp(getDb, html, faviconSvg);
 
 // Local-only sync endpoint (not available on Cloudflare Worker)
 let syncing = false;
