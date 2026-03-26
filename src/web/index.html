@@ -286,7 +286,32 @@ async function loadStats() {
     <div class="stat"><div class="stat-value">${s.totalComments || 0}</div><div class="stat-label">Comments</div></div>
     <div class="stat"><div class="stat-value">${s.llmReviewed}</div><div class="stat-label">LLM Reviewed</div></div>
     ${s.lastSyncAt ? `<div class="stat"><div class="stat-value" style="font-size:14px">${new Date(s.lastSyncAt + 'Z').toLocaleString()}</div><div class="stat-label">Last Sync</div></div>` : ''}
+    <div class="stat" id="syncButtonContainer" style="display:none"><button id="syncBtn" onclick="triggerSync()" style="padding:6px 16px;cursor:pointer;border-radius:6px;border:1px solid var(--border);background:var(--bg-card);color:var(--text);font-size:13px">Sync Now</button></div>
   `;
+  // Show sync button only if local endpoint is available
+  fetch('/api/sync').then(r => {
+    if (r.ok) document.getElementById('syncButtonContainer').style.display = '';
+  }).catch(() => {});
+
+}
+
+async function triggerSync() {
+  const btn = document.getElementById('syncBtn');
+  btn.disabled = true;
+  btn.textContent = 'Syncing…';
+  try {
+    const res = await fetch('/api/sync', { method: 'POST' });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Sync failed');
+    btn.textContent = 'Done!';
+    setTimeout(() => { btn.textContent = 'Sync Now'; btn.disabled = false; }, 2000);
+    loadStats();
+    loadPRs();
+  } catch (err) {
+    btn.textContent = 'Error';
+    setTimeout(() => { btn.textContent = 'Sync Now'; btn.disabled = false; }, 3000);
+    console.error('Sync failed:', err);
+  }
 }
 
 // --- PR List ---
