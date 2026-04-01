@@ -184,12 +184,15 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
         per_page: 100,
       });
 
-      await db.run('DELETE FROM pr_files WHERE pr_number = ?', [pr.number]);
+      batch.push({
+        sql: 'DELETE FROM pr_files WHERE pr_number = ?',
+        params: [pr.number],
+      });
       for (const file of files) {
-        await db.run(`
-          INSERT INTO pr_files (pr_number, filename, status)
-          VALUES (?, ?, ?)
-        `, [pr.number, file.filename, file.status]);
+        batch.push({
+          sql: `INSERT INTO pr_files (pr_number, filename, status) VALUES (?, ?, ?)`,
+          params: [pr.number, file.filename, file.status],
+        });
       }
 
       // Upsert check runs
