@@ -229,10 +229,15 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
         const { data } = await octokit.rest.pulls.get({
           owner: REPO_OWNER, repo: REPO_NAME, pull_number: p.number,
         });
+        if (data.state === 'open') {
+          // PR is still open — pagination returned partial results, leave it alone
+          return;
+        }
         const newState = data.merged ? 'merged' : 'closed';
         await db.run(`UPDATE pull_requests SET state = ? WHERE number = ?`, [newState, p.number]);
       } catch {
-        await db.run(`UPDATE pull_requests SET state = 'closed' WHERE number = ?`, [p.number]);
+        // API error — don't assume closed, leave state unchanged
+        console.error(chalk.yellow(`\nCould not verify PR #${p.number}, leaving state unchanged`));
       }
       staleCompleted++;
       process.stdout.write(`\r  ${chalk.green(`${staleCompleted}/${toCheck.length}`)} checked`);
