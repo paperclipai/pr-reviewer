@@ -3,571 +3,1541 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PR Triage — paperclipai/paperclip</title>
+<title>Paperclip Clips</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #0d1117; --surface: #161b22; --border: #30363d;
-    --text: #e6edf3; --text-muted: #8b949e; --text-dim: #484f58;
-    --green: #3fb950; --red: #f85149; --yellow: #d29922; --blue: #58a6ff;
-    --radius: 6px;
+    --paper: #f4efe5;
+    --paper-2: #efe3cf;
+    --ink: #101010;
+    --ink-soft: #5f5b55;
+    --line: rgba(16, 16, 16, 0.14);
+    --line-strong: rgba(16, 16, 16, 0.3);
+    --card: rgba(255, 250, 243, 0.82);
+    --card-dark: #161311;
+    --card-dark-soft: #231d18;
+    --shadow: 0 18px 60px rgba(35, 22, 10, 0.14);
+    --gold: #e88f19;
+    --gold-deep: #b6570d;
+    --blue: #0d6387;
+    --green: #0b8d57;
+    --red: #b53c32;
+    --cream: #fffaf4;
+    --radius-xl: 28px;
+    --radius-lg: 20px;
+    --radius-md: 14px;
   }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; }
-  a { color: var(--blue); text-decoration: none; }
-  a:hover { text-decoration: underline; }
 
-  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; }
-  .header h1 { font-size: 20px; font-weight: 600; }
-  .header h1 span { color: var(--text-muted); font-weight: 400; }
-  .header h1 a { color: inherit; text-decoration: none; }
-  .header h1 a:hover { text-decoration: none; }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    font-family: "IBM Plex Sans", sans-serif;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at top left, rgba(232, 143, 25, 0.22), transparent 30%),
+      radial-gradient(circle at top right, rgba(13, 99, 135, 0.18), transparent 28%),
+      linear-gradient(180deg, #f8f2e8 0%, #f2e6d2 42%, #efe0c8 100%);
+  }
 
-  .nav { display: flex; gap: 16px; align-items: center; }
-  .nav a { font-size: 14px; padding: 6px 12px; border-radius: var(--radius); }
-  .nav a.active { background: rgba(88,166,255,0.15); }
+  a { color: inherit; text-decoration: none; }
+  button, input, select { font: inherit; }
+  img { max-width: 100%; display: block; }
 
-  .stats { display: flex; gap: 24px; }
-  .stat { text-align: center; }
-  .stat-value { font-size: 24px; font-weight: 700; }
-  .stat-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; }
+  .shell {
+    max-width: 1320px;
+    margin: 0 auto;
+    padding: 24px;
+  }
 
-  .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+  .masthead {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    margin: 8px 0 24px;
+    padding: 14px 18px;
+    border: 1px solid rgba(255,255,255,0.5);
+    border-radius: 999px;
+    backdrop-filter: blur(16px);
+    background: rgba(255, 249, 240, 0.75);
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    justify-content: space-between;
+    box-shadow: var(--shadow);
+  }
 
-  .filters { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
-  .filters label { font-size: 13px; color: var(--text-muted); }
-  .filters select, .filters input { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: var(--radius); font-size: 13px; }
-  .filters input[type="number"] { width: 60px; }
-  .filters input[type="checkbox"] { width: auto; }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
 
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  thead { position: sticky; top: 0; }
-  th { background: var(--surface); text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); font-weight: 600; font-size: 12px; text-transform: uppercase; color: var(--text-muted); cursor: pointer; user-select: none; white-space: nowrap; }
-  th:hover { color: var(--text); }
-  td { padding: 10px 12px; border-bottom: 1px solid var(--border); }
-  tr:hover td { background: var(--surface); }
-  tr.clickable { cursor: pointer; }
+  .brand-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    background:
+      linear-gradient(135deg, #f1b142, #d96d10 70%, #8f3802);
+    display: grid;
+    place-items: center;
+    color: white;
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 0.1em;
+    box-shadow: 0 10px 28px rgba(208, 116, 23, 0.28);
+  }
 
-  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
-  .badge-green { background: rgba(63,185,80,0.15); color: var(--green); }
-  .badge-red { background: rgba(248,81,73,0.15); color: var(--red); }
-  .badge-yellow { background: rgba(210,153,34,0.15); color: var(--yellow); }
-  .badge-gray { background: rgba(139,148,158,0.15); color: var(--text-muted); }
+  .brand-copy strong {
+    display: block;
+    font-size: 15px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 
-  .score-bar { display: inline-block; min-width: 36px; text-align: center; font-weight: 700; font-size: 13px; }
-  .score-high { color: var(--green); }
-  .score-mid { color: var(--yellow); }
-  .score-low { color: var(--red); }
+  .brand-copy span {
+    display: block;
+    font-size: 12px;
+    color: var(--ink-soft);
+  }
 
-  .title-cell { max-width: 400px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 
-  .ci-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
-  .ci-dot-green { background: var(--green); }
-  .ci-dot-red { background: var(--red); }
-  .ci-dot-yellow { background: var(--yellow); }
-  .ci-dot-gray { background: var(--text-muted); }
+  .nav a {
+    padding: 10px 14px;
+    border-radius: 999px;
+    font-size: 14px;
+    color: var(--ink-soft);
+    transition: background 140ms ease, color 140ms ease, transform 140ms ease;
+  }
 
-  .label-badge { display: inline-block; padding: 1px 6px; border-radius: 10px; font-size: 11px; font-weight: 500; margin-right: 3px; white-space: nowrap; border: 1px solid rgba(255,255,255,0.1); }
-  .labels-cell { max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nav a.active,
+  .nav a:hover {
+    background: rgba(16, 16, 16, 0.08);
+    color: var(--ink);
+    transform: translateY(-1px);
+  }
+
+  .session-controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
+  .pill,
+  .ghost-btn,
+  .primary-btn {
+    border-radius: 999px;
+    padding: 11px 16px;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease;
+  }
+
+  .pill { font-size: 13px; color: var(--ink-soft); }
+  .ghost-btn:hover,
+  .primary-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 20px rgba(30, 16, 6, 0.08);
+  }
+
+  .primary-btn {
+    background: linear-gradient(135deg, #1b1b18, #4a392d);
+    color: #fff7ee;
+    border-color: transparent;
+  }
 
   .page { display: none; }
   .page.active { display: block; }
 
-  .back-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; margin-bottom: 16px; }
-  .back-btn:hover { border-color: var(--text-muted); }
+  .hero {
+    display: grid;
+    grid-template-columns: 1.2fr 0.8fr;
+    gap: 24px;
+    align-items: stretch;
+    margin-bottom: 24px;
+  }
 
-  .detail-header { margin-bottom: 24px; }
-  .detail-header h2 { font-size: 24px; margin-bottom: 4px; }
-  .detail-header .meta { color: var(--text-muted); font-size: 14px; }
+  .hero-main,
+  .hero-side,
+  .panel,
+  .dark-panel {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+  }
 
-  .detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
-  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; }
-  .card h3 { font-size: 14px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px; }
-  .card-full { grid-column: 1 / -1; }
+  .hero-main {
+    position: relative;
+    overflow: hidden;
+    padding: 32px;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(255, 222, 176, 0.9), transparent 32%),
+      linear-gradient(160deg, #fffaf3 0%, #f6e4bd 48%, #efc481 100%);
+    border: 1px solid rgba(255,255,255,0.6);
+  }
 
-  .prop { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
-  .prop-label { color: var(--text-muted); }
+  .hero-main::after {
+    content: "";
+    position: absolute;
+    right: -30px;
+    top: -12px;
+    width: 240px;
+    height: 240px;
+    border-radius: 40px;
+    background:
+      linear-gradient(135deg, rgba(26,21,17,0.9), rgba(88,53,25,0.76));
+    transform: rotate(17deg);
+    opacity: 0.16;
+  }
 
-  .review-block { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 8px; }
-  .review-block .rec { font-weight: 600; font-size: 16px; margin-bottom: 8px; }
+  .eyebrow {
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-size: 11px;
+    color: rgba(16,16,16,0.62);
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
 
-  .description { white-space: pre-wrap; font-size: 13px; color: var(--text-muted); max-height: 300px; overflow-y: auto; }
+  .hero h1,
+  .section-title,
+  .detail-title {
+    margin: 0;
+    font-family: "Fraunces", serif;
+    font-weight: 700;
+    line-height: 0.95;
+    letter-spacing: -0.03em;
+  }
 
-  .empty { text-align: center; padding: 48px; color: var(--text-muted); }
-  .loading { text-align: center; padding: 48px; color: var(--text-muted); }
+  .hero h1 { font-size: clamp(44px, 7vw, 78px); max-width: 10ch; }
 
-  .pagination { display: flex; align-items: center; justify-content: center; gap: 12px; margin-top: 16px; padding: 12px 0; }
-  .pagination button { background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: var(--radius); cursor: pointer; font-size: 13px; }
-  .pagination button:hover:not(:disabled) { border-color: var(--text-muted); }
-  .pagination button:disabled { opacity: 0.4; cursor: default; }
-  .pagination .page-info { font-size: 13px; color: var(--text-muted); }
+  .hero p {
+    max-width: 62ch;
+    color: rgba(16, 16, 16, 0.78);
+    font-size: 16px;
+    line-height: 1.6;
+  }
 
-  .search-bar { display: flex; gap: 8px; margin-bottom: 16px; }
-  .search-bar input { flex: 1; background: var(--surface); border: 1px solid var(--border); color: var(--text); padding: 8px 12px; border-radius: var(--radius); font-size: 14px; }
-  .search-bar button { background: var(--blue); color: #fff; border: none; padding: 8px 16px; border-radius: var(--radius); cursor: pointer; font-size: 14px; }
-  .search-bar button:hover { opacity: 0.9; }
+  .hero-actions,
+  .stats-strip,
+  .grid-2,
+  .grid-3,
+  .filters-row,
+  .mini-actions,
+  .profile-metrics,
+  .form-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
 
-  .search-group { margin-bottom: 16px; }
-  .search-group-header { font-weight: 600; margin-bottom: 8px; font-size: 15px; }
-  .search-match { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 6px; font-size: 13px; }
-  .search-match .match-meta { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
-  .search-match .match-body { white-space: pre-wrap; max-height: 120px; overflow-y: auto; color: var(--text); }
+  .stats-strip { margin-top: 22px; }
+
+  .stat-chip {
+    min-width: 124px;
+    padding: 14px 16px;
+    border-radius: 18px;
+    background: rgba(255,255,255,0.54);
+    border: 1px solid rgba(16,16,16,0.08);
+  }
+
+  .stat-chip strong {
+    display: block;
+    font-size: 28px;
+    font-family: "Fraunces", serif;
+  }
+
+  .stat-chip span {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-soft);
+  }
+
+  .hero-side {
+    display: grid;
+    gap: 14px;
+    grid-template-rows: auto auto 1fr;
+  }
+
+  .panel {
+    padding: 24px;
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.55);
+  }
+
+  .dark-panel {
+    padding: 24px;
+    background:
+      radial-gradient(circle at top right, rgba(232, 143, 25, 0.22), transparent 28%),
+      linear-gradient(180deg, #1c1713, #13100d);
+    color: #f9f2e7;
+    border: 1px solid rgba(255,255,255,0.08);
+  }
+
+  .section-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: flex-end;
+    margin-bottom: 18px;
+  }
+
+  .section-title { font-size: clamp(28px, 4vw, 46px); }
+  .section-subtitle,
+  .muted,
+  .metric-label,
+  .card-subtle,
+  .small-text {
+    color: var(--ink-soft);
+    line-height: 1.5;
+  }
+
+  .section-subtitle { max-width: 64ch; }
+
+  .grid-2 { align-items: stretch; }
+  .grid-2 > * { flex: 1 1 320px; }
+  .grid-3 > * { flex: 1 1 260px; }
+
+  .steps {
+    display: grid;
+    gap: 12px;
+  }
+
+  .step {
+    padding: 16px 18px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .step strong {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: rgba(249, 242, 231, 0.72);
+  }
+
+  .step p { margin: 0; font-size: 14px; line-height: 1.55; color: rgba(249,242,231,0.9); }
+
+  .spotlight-number {
+    margin: 0 0 8px;
+    font-family: "Fraunces", serif;
+    font-size: 54px;
+    line-height: 0.9;
+  }
+
+  .community-list,
+  .card-stack,
+  .detail-columns,
+  .profile-columns,
+  .search-results,
+  .ledger-list,
+  .voter-list {
+    display: grid;
+    gap: 14px;
+  }
+
+  .pr-card,
+  .community-card,
+  .profile-card,
+  .ledger-item,
+  .search-card,
+  .detail-block {
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    background: var(--card);
+    border: 1px solid rgba(255,255,255,0.62);
+    box-shadow: var(--shadow);
+  }
+
+  .community-card,
+  .profile-card,
+  .detail-block { background: rgba(255, 250, 244, 0.88); }
+
+  .pr-card {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pr-card::before {
+    content: "";
+    position: absolute;
+    inset: auto -28px -28px auto;
+    width: 120px;
+    height: 120px;
+    border-radius: 24px;
+    background: radial-gradient(circle at center, rgba(232, 143, 25, 0.26), transparent 70%);
+    transform: rotate(24deg);
+    pointer-events: none;
+  }
+
+  .pr-head,
+  .row-between,
+  .metric-row {
+    display: flex;
+    gap: 14px;
+    justify-content: space-between;
+    align-items: flex-start;
+  }
+
+  .pr-head h3,
+  .profile-card h3,
+  .detail-block h3 {
+    margin: 0;
+    font-size: 22px;
+    line-height: 1.1;
+  }
+
+  .tag-row,
+  .avatar-row,
+  .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .tag {
+    padding: 5px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    background: rgba(255,255,255,0.66);
+  }
+
+  .tag.good { color: var(--green); border-color: rgba(11,141,87,0.28); background: rgba(11,141,87,0.08); }
+  .tag.warn { color: #9b5c00; border-color: rgba(232,143,25,0.26); background: rgba(232,143,25,0.08); }
+  .tag.bad { color: var(--red); border-color: rgba(181,60,50,0.24); background: rgba(181,60,50,0.08); }
+  .tag.dark { color: #f9f2e7; border-color: rgba(255,255,255,0.12); background: rgba(255,255,255,0.08); }
+
+  .progress-shell {
+    margin: 14px 0 10px;
+    padding: 12px 12px 10px;
+    border-radius: 16px;
+    background: rgba(16,16,16,0.04);
+    border: 1px solid rgba(16,16,16,0.08);
+  }
+
+  .progress-track {
+    height: 12px;
+    border-radius: 999px;
+    background: rgba(16,16,16,0.08);
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ffb64e, #e97716 55%, #0d6387 100%);
+  }
+
+  .metric-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 16px 0 14px;
+  }
+
+  .metric {
+    padding: 14px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.58);
+    border: 1px solid rgba(16,16,16,0.08);
+  }
+
+  .metric strong,
+  .metric-large {
+    display: block;
+    font-family: "Fraunces", serif;
+    font-size: 29px;
+    line-height: 0.95;
+  }
+
+  .metric-label {
+    margin-top: 4px;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  .allocation-box {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(16,16,16,0.05);
+    border: 1px solid rgba(16,16,16,0.08);
+  }
+
+  .allocation-box input,
+  .search-input,
+  .modal input,
+  .modal select,
+  .filter-select {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid rgba(16,16,16,0.15);
+    padding: 12px 14px;
+    background: rgba(255,255,255,0.78);
+    color: var(--ink);
+  }
+
+  .search-shell {
+    display: grid;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+
+  .filters-row { margin-bottom: 18px; }
+  .filter-select { min-width: 140px; }
+
+  .table-wrap {
+    overflow: auto;
+    border-radius: var(--radius-xl);
+    border: 1px solid rgba(16,16,16,0.08);
+    background: rgba(17,13,11,0.96);
+    color: #f7efe3;
+    box-shadow: var(--shadow);
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 860px;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 15px 18px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+    font-size: 14px;
+  }
+
+  th {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    color: rgba(247,239,227,0.56);
+    background: rgba(255,255,255,0.02);
+    position: sticky;
+    top: 0;
+  }
+
+  tr:hover td { background: rgba(255,255,255,0.04); }
+  .click-row { cursor: pointer; }
+
+  .avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: linear-gradient(135deg, #f0b660, #e27215);
+    border: 1px solid rgba(16,16,16,0.12);
+  }
+
+  .avatar.small { width: 28px; height: 28px; }
+  .avatar.large { width: 68px; height: 68px; }
+
+  .avatar-stack {
+    display: flex;
+    align-items: center;
+  }
+
+  .avatar-stack img {
+    margin-right: -8px;
+    box-shadow: 0 0 0 2px rgba(255,250,244,0.92);
+  }
+
+  .detail-columns,
+  .profile-columns {
+    grid-template-columns: 1.1fr 0.9fr;
+    align-items: start;
+  }
+
+  .empty-state {
+    padding: 24px;
+    border-radius: var(--radius-lg);
+    background: rgba(255,255,255,0.55);
+    border: 1px dashed rgba(16,16,16,0.18);
+    color: var(--ink-soft);
+  }
+
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(16, 10, 5, 0.54);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 100;
+  }
+
+  .modal-backdrop.open { display: flex; }
+
+  .modal {
+    width: min(520px, 100%);
+    padding: 28px;
+    border-radius: 26px;
+    background: #fffaf4;
+    box-shadow: 0 30px 70px rgba(18, 10, 4, 0.26);
+    border: 1px solid rgba(255,255,255,0.7);
+  }
+
+  .modal h2 {
+    margin: 0 0 10px;
+    font-family: "Fraunces", serif;
+    font-size: 40px;
+    line-height: 0.98;
+  }
+
+  .modal p { color: var(--ink-soft); line-height: 1.6; }
+  .status-banner {
+    margin-bottom: 18px;
+    padding: 12px 16px;
+    border-radius: 16px;
+    background: rgba(13,99,135,0.1);
+    border: 1px solid rgba(13,99,135,0.16);
+    color: #0a546f;
+    display: none;
+  }
+
+  .status-banner.error {
+    background: rgba(181,60,50,0.1);
+    border-color: rgba(181,60,50,0.18);
+    color: #8e271f;
+  }
+
+  .status-banner.show { display: block; }
+
+  .footer-note {
+    margin-top: 26px;
+    font-size: 12px;
+    color: rgba(16,16,16,0.56);
+  }
+
+  @media (max-width: 980px) {
+    .masthead { border-radius: 28px; flex-direction: column; align-items: stretch; }
+    .hero,
+    .detail-columns,
+    .profile-columns { grid-template-columns: 1fr; }
+  }
+
+  @media (max-width: 720px) {
+    .shell { padding: 16px; }
+    .hero-main, .hero-side, .panel, .dark-panel { padding: 22px; }
+    .metric-grid { grid-template-columns: 1fr; }
+    .brand { align-items: flex-start; }
+    .nav { justify-content: flex-start; }
+  }
 </style>
 </head>
 <body>
+<div class="shell">
+  <header class="masthead">
+    <div class="brand">
+      <div class="brand-mark">PC</div>
+      <div class="brand-copy">
+        <strong>Paperclip Clips</strong>
+        <span>Vote early on pull requests worth shipping.</span>
+      </div>
+    </div>
+    <nav class="nav">
+      <a href="#/" data-nav="discover">Discover</a>
+      <a href="#/leaderboard" data-nav="leaderboard">Leaderboard</a>
+      <a href="#/my-clips" data-nav="my">My Clips</a>
+      <a href="#/search" data-nav="search">Search</a>
+      <a href="#/analyst" data-nav="analyst">Analyst View</a>
+    </nav>
+    <div class="session-controls" id="sessionControls"></div>
+  </header>
 
-<div class="header">
-  <h1><a href="#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
-  <div class="nav">
-    <a href="#/" id="navList">PRs</a>
-    <a href="#/search" id="navSearch">Search</a>
-  </div>
-  <div class="stats" id="stats"></div>
+  <div class="status-banner" id="statusBanner"></div>
+
+  <main>
+    <section class="page" id="discoverPage"></section>
+    <section class="page" id="leaderboardPage"></section>
+    <section class="page" id="analystPage"></section>
+    <section class="page" id="searchPage"></section>
+    <section class="page" id="detailPage"></section>
+    <section class="page" id="myPage"></section>
+    <section class="page" id="profilePage"></section>
+  </main>
 </div>
 
-<div class="container">
-  <!-- List Page -->
-  <div class="page" id="listPage">
-    <div class="search-bar" style="margin-bottom:12px">
-      <input type="text" id="listSearchInput" placeholder="Search comments (BM25)... e.g. &quot;database migration&quot; or &quot;auth OR oauth&quot;">
-      <button onclick="doSearchFromList()">Search</button>
-    </div>
-    <div class="filters">
-      <label>State
-        <select id="filterState">
-          <option value="open" selected>Open</option>
-          <option value="merged">Merged</option>
-          <option value="closed">Closed</option>
-          <option value="all">All</option>
-        </select>
-      </label>
-      <label>Min Score
-        <select id="filterMinScore">
-          <option value="">Any</option>
-          <option value="1">1+</option>
-          <option value="2">2+</option>
-          <option value="3">3+</option>
-          <option value="4">4+</option>
-          <option value="5">5</option>
-        </select>
-      </label>
-      <label>CI
-        <select id="filterCI">
-          <option value="">Any</option>
-          <option value="passing">Passing</option>
-          <option value="failing">Failing</option>
-          <option value="pending">Pending</option>
-        </select>
-      </label>
-      <label>
-        <input type="checkbox" id="filterNoConflicts"> No conflicts
-      </label>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th data-sort="number">#</th>
-          <th data-sort="title">Title</th>
-          <th data-sort="author">Author</th>
-          <th data-sort="greptileScore">Greptile</th>
-          <th data-sort="ciStatus">CI</th>
-          <th>Labels</th>
-          <th data-sort="loc">LOC</th>
-          <th data-sort="hasConflicts">Conflicts</th>
-          <th data-sort="humanComments">Comments</th>
-          <th data-sort="compositeScore">Score</th>
-          <th data-sort="lastActivity">Updated</th>
-        </tr>
-      </thead>
-      <tbody id="prTable"></tbody>
-    </table>
-    <div class="loading" id="loading">Loading...</div>
-    <div class="pagination" id="pagination" style="display:none">
-      <button id="prevPage">&larr; Prev</button>
-      <span class="page-info" id="pageInfo"></span>
-      <button id="nextPage">Next &rarr;</button>
-    </div>
-  </div>
-
-  <!-- Detail Page -->
-  <div class="page" id="detailPage">
-    <button class="back-btn" onclick="navigate('/')">&larr; Back to list</button>
-    <div id="detailContent"></div>
-  </div>
-
-  <!-- Search Page -->
-  <div class="page search-page" id="searchPage">
-    <div class="search-bar">
-      <input type="text" id="searchInput" placeholder="Search comments (BM25)... e.g. &quot;database migration&quot; or &quot;auth OR oauth&quot;">
-      <button onclick="doSearch()">Search</button>
-    </div>
-    <div id="searchResults"></div>
+<div class="modal-backdrop" id="authModal">
+  <div class="modal">
+    <h2>Connect X</h2>
+    <p>Real X OAuth is the next step once app credentials are wired. This build ships with a local demo connect flow so you can exercise the full clips product now.</p>
+    <form id="authForm">
+      <div class="form-row">
+        <div style="flex:1 1 200px">
+          <label class="small-text">Handle</label>
+          <input name="handle" placeholder="@dotta" required>
+        </div>
+        <div style="flex:1 1 200px">
+          <label class="small-text">Display name</label>
+          <input name="displayName" placeholder="Dotta">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:12px">
+        <div style="flex:1 1 200px">
+          <label class="small-text">Paid tier</label>
+          <select name="verifiedType">
+            <option value="blue">Blue</option>
+            <option value="business">Gold / Business</option>
+            <option value="government">Gray / Government</option>
+          </select>
+        </div>
+        <div style="flex:1 1 200px">
+          <label class="small-text">Subscription label</label>
+          <input name="subscriptionType" value="premium">
+        </div>
+      </div>
+      <div class="form-row" style="margin-top:18px; justify-content:flex-end">
+        <button type="button" class="ghost-btn" id="cancelAuth">Cancel</button>
+        <button type="submit" class="primary-btn">Start with 10 clips</button>
+      </div>
+    </form>
+    <div class="footer-note">Reward curve in this build: first 50 clips are discovery, bonus fades until 500, then the PR is fully in consensus.</div>
   </div>
 </div>
 
 <script>
-let allPRs = [];
-let sortKey = 'compositeScore';
-let sortDir = -1;
-const PAGE_SIZE = 25;
-let currentPage = 1;
+const state = {
+  session: null,
+  stats: null,
+  leaderboard: [],
+  discoverPRs: [],
+  voters: [],
+  analystPRs: [],
+  labels: [],
+  loading: false,
+};
 
-// --- Routing ---
-function navigate(path) {
-  window.location.hash = path;
-}
-
-function parseHash() {
+function routeInfo() {
   const hash = window.location.hash.slice(1) || '/';
-  if (hash.startsWith('/pr/')) {
-    const num = parseInt(hash.slice(4));
-    return isNaN(num) ? { page: 'list' } : { page: 'detail', pr: num };
-  }
-  if (hash.startsWith('/search')) {
-    const qIdx = hash.indexOf('?');
-    const params = qIdx >= 0 ? new URLSearchParams(hash.slice(qIdx + 1)) : null;
-    return { page: 'search', q: params?.get('q') || '' };
-  }
-  return { page: 'list' };
+  if (hash.startsWith('/leaderboard')) return { page: 'leaderboard' };
+  if (hash.startsWith('/analyst')) return { page: 'analyst' };
+  if (hash.startsWith('/search')) return { page: 'search', q: new URLSearchParams(hash.split('?')[1] || '').get('q') || '' };
+  if (hash.startsWith('/my-clips')) return { page: 'my' };
+  if (hash.startsWith('/pr/')) return { page: 'detail', prNumber: parseInt(hash.split('/')[2], 10) };
+  if (hash.startsWith('/profile/')) return { page: 'profile', handle: decodeURIComponent(hash.split('/')[2] || '') };
+  return { page: 'discover' };
 }
 
-function showPage(name) {
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  document.getElementById(name + 'Page').classList.add('active');
-  document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-  if (name === 'list' || name === 'detail') document.getElementById('navList').classList.add('active');
-  if (name === 'search') document.getElementById('navSearch').classList.add('active');
-}
-
-async function handleRoute() {
-  const route = parseHash();
-  if (route.page === 'detail') {
-    showPage('detail');
-    await showDetail(route.pr);
-  } else if (route.page === 'search') {
-    showPage('search');
-    if (route.q) {
-      document.getElementById('searchInput').value = route.q;
-      await executeSearch(route.q);
-    }
-  } else {
-    showPage('list');
-    if (allPRs.length === 0) await loadPRs();
-  }
-}
-
-window.addEventListener('hashchange', handleRoute);
-
-// --- Stats ---
-async function loadStats() {
-  const res = await fetch('/api/stats');
-  const s = await res.json();
-  document.getElementById('stats').innerHTML = `
-    <div class="stat"><div class="stat-value">${s.totalPRs}</div><div class="stat-label">Open PRs</div></div>
-    <div class="stat"><div class="stat-value">${s.mergedPRs || 0}</div><div class="stat-label">Merged</div></div>
-    <div class="stat"><div class="stat-value">${s.closedPRs || 0}</div><div class="stat-label">Closed</div></div>
-    <div class="stat"><div class="stat-value">${s.withGreptileScores}</div><div class="stat-label">Greptile Scored</div></div>
-    <div class="stat"><div class="stat-value">${s.totalComments || 0}</div><div class="stat-label">Comments</div></div>
-    <div class="stat"><div class="stat-value">${s.llmReviewed}</div><div class="stat-label">LLM Reviewed</div></div>
-    ${s.lastSyncAt ? `<div class="stat"><div class="stat-value" style="font-size:14px">${new Date(s.lastSyncAt + 'Z').toLocaleString()}</div><div class="stat-label">Last Sync</div></div>` : ''}
-  `;
-}
-
-// --- PR List ---
-async function loadPRs() {
-  const params = new URLSearchParams();
-  const state = document.getElementById('filterState').value;
-  const minScore = document.getElementById('filterMinScore').value;
-  const ci = document.getElementById('filterCI').value;
-  const noConflicts = document.getElementById('filterNoConflicts').checked;
-
-  params.set('state', state);
-  if (minScore) params.set('minScore', minScore);
-  if (ci) params.set('ci', ci);
-  if (noConflicts) params.set('noConflicts', 'true');
-
-  document.getElementById('loading').style.display = 'block';
-  document.getElementById('pagination').style.display = 'none';
-  const res = await fetch('/api/prs?' + params);
-  allPRs = await res.json();
-  document.getElementById('loading').style.display = 'none';
-  currentPage = 1;
-  renderTable();
-}
-
-function getSorted() {
-  return [...allPRs].sort((a, b) => {
-    let av, bv;
-    if (sortKey === 'loc') {
-      av = (a.additions || 0) + (a.deletions || 0);
-      bv = (b.additions || 0) + (b.deletions || 0);
-    } else {
-      av = a[sortKey]; bv = b[sortKey];
-    }
-    if (av === null) av = -1;
-    if (bv === null) bv = -1;
-    if (typeof av === 'string') return sortDir * av.localeCompare(bv);
-    return sortDir * (av - bv);
-  });
-}
-
-function renderTable() {
-  const sorted = getSorted();
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  if (currentPage > totalPages) currentPage = totalPages;
-  const start = (currentPage - 1) * PAGE_SIZE;
-  const pageItems = sorted.slice(start, start + PAGE_SIZE);
-
-  const tbody = document.getElementById('prTable');
-  if (sorted.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty">No PRs match filters</td></tr>';
-    document.getElementById('pagination').style.display = 'none';
+function showBanner(message, type) {
+  const el = document.getElementById('statusBanner');
+  if (!message) {
+    el.className = 'status-banner';
+    el.textContent = '';
     return;
   }
-
-  tbody.innerHTML = pageItems.map(pr => `
-    <tr class="clickable" onclick="navigate('/pr/${pr.number}')">
-      <td><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" onclick="event.stopPropagation()">#${pr.number}</a></td>
-      <td class="title-cell">${esc(pr.title)}</td>
-      <td>${esc(pr.author)}</td>
-      <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">\u2014</span>'}</td>
-      <td>${ciDot(pr.ciStatus)}</td>
-      <td class="labels-cell">${renderLabels(pr.labels)}</td>
-      <td style="white-space:nowrap;font-size:13px"><span style="color:#3fb950">+${pr.additions || 0}</span> <span style="color:#f85149">-${pr.deletions || 0}</span></td>
-      <td>${pr.hasConflicts ? '<span class="badge badge-red">yes</span>' : '<span class="badge badge-green">no</span>'}</td>
-      <td>${pr.humanComments || 0}</td>
-      <td><span class="score-bar ${pr.compositeScore >= 70 ? 'score-high' : pr.compositeScore >= 40 ? 'score-mid' : 'score-low'}">${pr.compositeScore}</span></td>
-      <td style="white-space:nowrap;color:var(--text-muted);font-size:13px" title="${pr.lastActivity || ''}">${timeAgo(pr.lastActivity)}</td>
-    </tr>
-  `).join('');
-
-  // Pagination controls
-  const pag = document.getElementById('pagination');
-  if (sorted.length > PAGE_SIZE) {
-    pag.style.display = 'flex';
-    document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages} (${sorted.length} PRs)`;
-    document.getElementById('prevPage').disabled = currentPage <= 1;
-    document.getElementById('nextPage').disabled = currentPage >= totalPages;
-  } else {
-    pag.style.display = 'none';
-  }
+  el.className = 'status-banner show' + (type === 'error' ? ' error' : '');
+  el.textContent = message;
 }
 
-document.getElementById('prevPage').addEventListener('click', () => { if (currentPage > 1) { currentPage--; renderTable(); } });
-document.getElementById('nextPage').addEventListener('click', () => { const totalPages = Math.ceil(allPRs.length / PAGE_SIZE); if (currentPage < totalPages) { currentPage++; renderTable(); } });
-
-// --- Helpers ---
-function ciBadge(status) {
-  const map = { passing: 'badge-green', failing: 'badge-red', pending: 'badge-yellow', unknown: 'badge-gray' };
-  return `<span class="badge ${map[status] || 'badge-gray'}">${status}</span>`;
-}
-
-function ciDot(status) {
-  const map = { passing: 'ci-dot-green', failing: 'ci-dot-red', pending: 'ci-dot-yellow', unknown: 'ci-dot-gray' };
-  const titles = { passing: 'Passing', failing: 'Failing', pending: 'Pending', unknown: 'Unknown' };
-  return `<span class="ci-dot ${map[status] || 'ci-dot-gray'}" title="${titles[status] || 'Unknown'}"></span>`;
-}
-
-function labelColor(hex) {
-  if (!hex) return { bg: 'rgba(139,148,158,0.15)', fg: 'var(--text-muted)' };
-  const r = parseInt(hex.slice(0, 2), 16), g = parseInt(hex.slice(2, 4), 16), b = parseInt(hex.slice(4, 6), 16);
-  // Use label color as background with transparency, pick light/dark text based on luminance
-  const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return { bg: `rgba(${r},${g},${b},0.25)`, fg: lum > 0.5 ? `#${hex}` : `rgba(${Math.min(255,r+80)},${Math.min(255,g+80)},${Math.min(255,b+80)},1)` };
-}
-
-function renderLabels(labels) {
-  if (!labels || labels.length === 0) return '';
-  return labels.slice(0, 3).map(l => {
-    const c = labelColor(l.color);
-    return `<span class="label-badge" style="background:${c.bg};color:${c.fg};border-color:${c.fg}33" title="${esc(l.name)}">${esc(l.name)}</span>`;
-  }).join('');
+function escapeHtml(value) {
+  const div = document.createElement('div');
+  div.textContent = value == null ? '' : String(value);
+  return div.innerHTML;
 }
 
 function timeAgo(dateStr) {
   if (!dateStr) return '';
   const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
-  const now = Date.now();
-  const sec = Math.floor((now - d.getTime()) / 1000);
+  const sec = Math.floor((Date.now() - d.getTime()) / 1000);
   if (sec < 60) return 'just now';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return min + 'm ago';
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return hr + 'h ago';
-  const days = Math.floor(hr / 24);
-  if (days < 30) return days + 'd ago';
-  const months = Math.floor(days / 30);
-  if (months < 12) return months + 'mo ago';
-  return Math.floor(months / 12) + 'y ago';
+  if (sec < 3600) return Math.floor(sec / 60) + 'm ago';
+  if (sec < 86400) return Math.floor(sec / 3600) + 'h ago';
+  if (sec < 2592000) return Math.floor(sec / 86400) + 'd ago';
+  return d.toLocaleDateString();
 }
 
-function esc(s) {
-  const d = document.createElement('div');
-  d.textContent = s || '';
-  return d.innerHTML;
+function formatDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z');
+  return d.toLocaleString();
 }
 
-function recBadge(rec) {
-  const map = { approve: 'badge-green', request_changes: 'badge-red', needs_discussion: 'badge-yellow' };
-  return `<span class="badge ${map[rec] || 'badge-gray'}">${rec || 'unknown'}</span>`;
+function scoreTone(score) {
+  if (score >= 70) return 'good';
+  if (score >= 40) return 'warn';
+  return 'bad';
 }
 
-function riskBadge(risk) {
-  const map = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red', critical: 'badge-red' };
-  return `<span class="badge ${map[risk] || 'badge-gray'}">${risk || 'unknown'}</span>`;
+function ciTone(status) {
+  if (status === 'passing') return 'good';
+  if (status === 'pending') return 'warn';
+  if (status === 'failing') return 'bad';
+  return '';
 }
 
-// --- Detail ---
-async function showDetail(number) {
-  document.getElementById('detailContent').innerHTML = '<div class="loading">Loading...</div>';
+function phaseLabel(phase) {
+  if (phase === 'discovery') return 'Discovery';
+  if (phase === 'momentum') return 'Momentum';
+  return 'Consensus';
+}
 
-  const [res, commentsRes] = await Promise.all([
-    fetch(`/api/prs/${number}`),
-    fetch(`/api/prs/${number}/comments`),
-  ]);
-  if (!res.ok) { document.getElementById('detailContent').innerHTML = '<div class="empty">PR not found</div>'; return; }
-  const d = await res.json();
-  const comments = commentsRes.ok ? await commentsRes.json() : [];
-  const sb = d.scoreBreakdown || {};
+function initials(name) {
+  return (name || '?').split(/\s+/).slice(0, 2).map(part => part[0] || '').join('').toUpperCase();
+}
 
-  document.getElementById('detailContent').innerHTML = `
-    <div class="detail-header">
-      <h2><a href="https://github.com/paperclipai/paperclip/pull/${d.number}" target="_blank">#${d.number}</a> ${esc(d.title)}</h2>
-      <div class="meta">by ${esc(d.author)} · created ${new Date(d.createdAt).toLocaleDateString()} · updated ${timeAgo(d.lastActivity)}</div>
-    </div>
+function avatarMarkup(person, size = 'small') {
+  const cls = size === 'large' ? 'avatar large' : size === 'small' ? 'avatar small' : 'avatar';
+  if (person && person.avatarUrl) {
+    return `<img class="${cls}" src="${escapeHtml(person.avatarUrl)}" alt="${escapeHtml(person.displayName || person.handle || 'avatar')}">`;
+  }
+  return `<div class="${cls}" style="display:grid;place-items:center;color:white;font-weight:700">${escapeHtml(initials(person?.displayName || person?.handle || '?'))}</div>`;
+}
 
-    <div class="detail-grid">
-      <div class="card">
-        <h3>Status</h3>
-        <div class="prop"><span class="prop-label">State</span><span>${ciBadge(d.state)}</span></div>
-        <div class="prop"><span class="prop-label">Mergeable</span><span>${d.hasConflicts === undefined ? 'unknown' : d.hasConflicts ? '<span class="badge badge-red">conflicts</span>' : '<span class="badge badge-green">yes</span>'}</span></div>
-        <div class="prop"><span class="prop-label">CI</span><span>${ciBadge(d.ciStatus)}</span></div>
-        <div class="prop"><span class="prop-label">Head SHA</span><span style="font-family:monospace;font-size:12px">${esc(d.headSha?.slice(0, 8))}</span></div>
-        ${d.labels && d.labels.length ? `<div class="prop"><span class="prop-label">Labels</span><span>${renderLabels(d.labels)}</span></div>` : ''}
+function badgeMarkup(badge, tone = '') {
+  return `<span class="tag ${tone}">${escapeHtml(badge)}</span>`;
+}
+
+function progressMarkup(pr) {
+  return `
+    <div class="progress-shell">
+      <div class="row-between small-text">
+        <span>${phaseLabel(pr.phase)} window</span>
+        <span>${pr.totalClips}/${state.stats ? state.stats.consensusCap : 500} clips</span>
       </div>
-
-      <div class="card">
-        <h3>Score Breakdown</h3>
-        <div class="prop"><span class="prop-label">Composite</span><span class="score-bar ${d.compositeScore >= 70 ? 'score-high' : d.compositeScore >= 40 ? 'score-mid' : 'score-low'}">${d.compositeScore}/115</span></div>
-        <div class="prop"><span class="prop-label">Greptile (0-40)</span><span>${sb.greptile?.value ?? 0} ${d.greptileScore !== null ? '(' + d.greptileScore + '/5)' : ''}</span></div>
-        <div class="prop"><span class="prop-label">CI (0-25)</span><span>${sb.ci?.value ?? 0}</span></div>
-        <div class="prop"><span class="prop-label">Conflicts (-15/+15)</span><span>${sb.conflicts?.value ?? 0}</span></div>
-        <div class="prop"><span class="prop-label">Comments (0-20)</span><span>${sb.humanComments?.value ?? 0} (${d.humanComments} human)</span></div>
-        <div class="prop"><span class="prop-label">LOC (0-15)</span><span>${sb.loc?.value ?? 0} (${sb.loc?.input ?? 0} lines)</span></div>
+      <div class="progress-track" style="margin:8px 0 6px">
+        <div class="progress-fill" style="width:${Math.min(100, pr.consensusProgressPct)}%"></div>
       </div>
-
-      <div class="card">
-        <h3>Greptile Scores</h3>
-        ${d.greptileScores && d.greptileScores.length ? d.greptileScores.map(s => `
-          <div class="prop">
-            <span class="score-bar ${s.confidence_score >= 4 ? 'score-high' : s.confidence_score >= 3 ? 'score-mid' : 'score-low'}">${s.confidence_score}/5</span>
-            <span style="font-size:12px;color:var(--text-muted)">${new Date(s.created_at).toLocaleDateString()}</span>
-          </div>
-        `).join('') : '<div style="color:var(--text-muted)">No scores</div>'}
+      <div class="row-between small-text">
+        <span>Next clip bonus</span>
+        <strong style="color:var(--gold-deep)">${pr.nextClipBonusPct}%</strong>
       </div>
-
-      <div class="card">
-        <h3>Check Runs</h3>
-        ${d.checks && d.checks.length ? d.checks.map(c => `
-          <div class="prop">
-            <span>${esc(c.name)}</span>
-            ${ciBadge(c.conclusion === 'success' ? 'passing' : c.status === 'completed' ? 'failing' : 'pending')}
-          </div>
-        `).join('') : '<div style="color:var(--text-muted)">No checks</div>'}
-      </div>
-
-      <div class="card card-full">
-        <h3>LLM Reviews</h3>
-        ${d.reviews && d.reviews.length ? d.reviews.map(r => `
-          <div class="review-block">
-            <div class="rec">${recBadge(r.review.recommendation)} <span style="font-size:12px;color:var(--text-muted)">${esc(r.model)} v${esc(r.prompt_version)}</span></div>
-            <div class="prop"><span class="prop-label">Risk</span><span>${riskBadge(r.review.risk_level)}</span></div>
-            <div class="prop"><span class="prop-label">Summary</span><span>${esc(r.review.summary)}</span></div>
-            ${r.review.reasoning ? `<div style="margin-top:8px;font-size:13px;color:var(--text-muted)">${esc(r.review.reasoning)}</div>` : ''}
-          </div>
-        `).join('') : '<div style="color:var(--text-muted)">Not yet reviewed</div>'}
-      </div>
-
-      ${d.body ? `<div class="card card-full"><h3>Description</h3><div class="description">${esc(d.body)}</div></div>` : ''}
-
-      ${comments && comments.length ? `<div class="card card-full"><h3>Comments (${comments.length})</h3>${comments.map(cm => `
-        <div class="review-block">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">${esc(cm.author)} · ${new Date(cm.created_at).toLocaleDateString()}</div>
-          <div class="description" style="max-height:200px">${esc(cm.body)}</div>
-        </div>
-      `).join('')}</div>` : ''}
     </div>
   `;
 }
 
-// --- Search ---
-function doSearch() {
-  const q = document.getElementById('searchInput').value.trim();
-  if (!q) return;
-  navigate('/search?q=' + encodeURIComponent(q));
+function topVotersMarkup(voters) {
+  if (!voters || voters.length === 0) return '<span class="small-text">No one has clipped this yet.</span>';
+  return `
+    <div class="avatar-row">
+      <div class="avatar-stack">
+        ${voters.slice(0, 6).map(v => `<a href="#/profile/${encodeURIComponent(v.handle)}" title="${escapeHtml(v.displayName || v.handle)}">${avatarMarkup(v)}</a>`).join('')}
+      </div>
+      <span class="small-text">${voters.length} public voter${voters.length === 1 ? '' : 's'}</span>
+    </div>
+  `;
 }
 
-function doSearchFromList() {
-  const q = document.getElementById('listSearchInput').value.trim();
-  if (!q) return;
-  navigate('/search?q=' + encodeURIComponent(q));
+function cardActions(pr) {
+  const session = state.session;
+  if (!session || !session.authenticated) {
+    return `<div class="allocation-box"><div class="small-text">Sign in to allocate clips and show your taste publicly.</div><div style="margin-top:10px"><button class="primary-btn" onclick="openAuthModal()">Connect X</button></div></div>`;
+  }
+  return `
+    <div class="allocation-box">
+      <div class="row-between small-text">
+        <span>Your live position</span>
+        <strong>${pr.viewerAllocation || 0} clips</strong>
+      </div>
+      <div class="mini-actions" style="margin-top:10px">
+        <input type="number" min="0" step="1" value="${pr.viewerAllocation || 0}" id="alloc-${pr.number}" style="max-width:140px">
+        <button class="ghost-btn" onclick="submitAllocation(${pr.number})">Set clips</button>
+        <button class="pill" onclick="adjustAllocation(${pr.number}, 1)">+1</button>
+        <button class="pill" onclick="adjustAllocation(${pr.number}, 3)">+3</button>
+      </div>
+    </div>
+  `;
 }
 
-async function executeSearch(q) {
-  const sr = document.getElementById('searchResults');
-  sr.innerHTML = '<div class="loading">Searching...</div>';
+function prCard(pr) {
+  return `
+    <article class="pr-card">
+      <div class="pr-head">
+        <div>
+          <div class="tag-row" style="margin-bottom:8px">
+            ${badgeMarkup('#' + pr.number)}
+            ${badgeMarkup(phaseLabel(pr.phase), pr.phase === 'discovery' ? 'good' : pr.phase === 'momentum' ? 'warn' : 'dark')}
+            ${badgeMarkup(pr.ciStatus, ciTone(pr.ciStatus))}
+            ${badgeMarkup('Score ' + pr.compositeScore, scoreTone(pr.compositeScore))}
+          </div>
+          <h3><a href="#/pr/${pr.number}">${escapeHtml(pr.title)}</a></h3>
+          <p class="card-subtle">${escapeHtml(pr.excerpt || 'No summary yet.')}</p>
+        </div>
+      </div>
+      ${progressMarkup(pr)}
+      <div class="metric-grid">
+        <div class="metric">
+          <strong>${pr.totalClips}</strong>
+          <div class="metric-label">clips committed</div>
+        </div>
+        <div class="metric">
+          <strong>${pr.voterCount}</strong>
+          <div class="metric-label">public voters</div>
+        </div>
+        <div class="metric">
+          <strong>${pr.nextClipBonusPct}%</strong>
+          <div class="metric-label">next clip bonus</div>
+        </div>
+      </div>
+      <div class="row-between small-text">
+        <span>by ${escapeHtml(pr.author)} · ${timeAgo(pr.lastActivity)}</span>
+        <a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" rel="noreferrer">GitHub</a>
+      </div>
+      ${cardActions(pr)}
+    </article>
+  `;
+}
 
-  const res = await fetch(`/api/search?q=${encodeURIComponent(q)}&limit=50`);
-  const data = await res.json();
-  if (data.error) { sr.innerHTML = `<div class="empty">${esc(data.error)}</div>`; return; }
-
-  if (data.prs.length === 0) {
-    sr.innerHTML = '<div class="empty">No matches</div>';
+function renderSessionControls() {
+  const el = document.getElementById('sessionControls');
+  const session = state.session;
+  if (!session || !session.authenticated) {
+    el.innerHTML = `
+      <span class="pill">Local demo auth</span>
+      <button class="ghost-btn" onclick="openAuthModal()">Connect X</button>
+    `;
     return;
   }
-
-  sr.innerHTML = `<div style="color:var(--text-muted);margin-bottom:12px">${data.totalMatches} matches across ${data.prs.length} PRs</div>` +
-    data.prs.map(g => `
-      <div class="search-group">
-        <div class="search-group-header">
-          <a href="#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)}
-        </div>
-        ${g.matches.map(m => `
-          <div class="search-match">
-            <div class="match-meta">${esc(m.author)} · ${new Date(m.created_at).toLocaleDateString()}</div>
-            <div class="match-body">${esc(m.body.length > 500 ? m.body.slice(0, 500) + '...' : m.body)}</div>
-          </div>
-        `).join('')}
-      </div>
-    `).join('');
+  const user = session.user;
+  el.innerHTML = `
+    <span class="pill">${user.clipsBalance} live clips</span>
+    <a class="ghost-btn" href="#/profile/${encodeURIComponent(user.handle)}">${escapeHtml(user.displayName)}</a>
+    <button class="primary-btn" onclick="logout()">Log out</button>
+  `;
 }
 
-document.getElementById('searchInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') doSearch();
-});
-document.getElementById('listSearchInput').addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') doSearchFromList();
+async function api(url, options) {
+  const res = await fetch(url, options);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(data.error || 'Request failed');
+  }
+  return data;
+}
+
+async function loadCore() {
+  const [session, stats] = await Promise.all([
+    api('/api/session'),
+    api('/api/stats'),
+  ]);
+  state.session = session;
+  state.stats = stats;
+  renderSessionControls();
+}
+
+async function ensureDiscoverData() {
+  const [leaderboard, discoverPRs, voters, labels] = await Promise.all([
+    api('/api/leaderboard'),
+    api('/api/prs?state=open&sort=clips&limit=12'),
+    api('/api/voters'),
+    api('/api/labels'),
+  ]);
+  state.leaderboard = leaderboard;
+  state.discoverPRs = discoverPRs;
+  state.voters = voters;
+  state.labels = labels;
+}
+
+async function ensureAnalystData() {
+  state.analystPRs = await api('/api/prs?state=open&sort=score&limit=100');
+}
+
+function renderDiscoverPage() {
+  const page = document.getElementById('discoverPage');
+  const session = state.session;
+  const user = session && session.authenticated ? session.user : null;
+  page.innerHTML = `
+    <div class="hero">
+      <div class="hero-main">
+        <div class="eyebrow">Public taste market for pull requests</div>
+        <h1>Find the pull requests before everyone else does.</h1>
+        <p>Connect your X account, collect 10 clips, and back the work you believe should ship. The first 50 clips on a pull request live in discovery. From there the bonus fades until 500 clips, where the crowd has fully caught up.</p>
+        <div class="hero-actions">
+          ${user ? `<a class="primary-btn" href="#/my-clips">Spend your ${user.clipsBalance} clips</a>` : `<button class="primary-btn" onclick="openAuthModal()">Connect X and get 10 clips</button>`}
+          <a class="ghost-btn" href="#/analyst">Open analyst view</a>
+        </div>
+        <div class="stats-strip">
+          <div class="stat-chip"><strong>${state.stats.openPRs}</strong><span>live pull requests</span></div>
+          <div class="stat-chip"><strong>${state.stats.activeClips}</strong><span>clips in motion</span></div>
+          <div class="stat-chip"><strong>${state.stats.activeVoters}</strong><span>public voters</span></div>
+          <div class="stat-chip"><strong>${state.stats.discoveryCap}/${state.stats.consensusCap}</strong><span>discovery / consensus</span></div>
+        </div>
+      </div>
+      <div class="hero-side">
+        <div class="dark-panel">
+          <div class="eyebrow" style="color:rgba(249,242,231,0.58)">How it works</div>
+          <div class="steps">
+            <div class="step"><strong>1. Connect X</strong><p>Any paid X tier is eligible in this build. Your handle becomes part of the public conviction graph.</p></div>
+            <div class="step"><strong>2. Allocate early</strong><p>The first 50 clips on a PR get the best reward profile. Late followers still get principal back, but not the same upside.</p></div>
+            <div class="step"><strong>3. Win when it merges</strong><p>Merged PRs return principal plus any earned bonus. Closed PRs return principal only, so bad taste costs time, not extinction.</p></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">Community pulse</div>
+          <p class="spotlight-number">${state.leaderboard[0] ? state.leaderboard[0].totalClips : 0}</p>
+          <p class="small-text">clips on the hottest PR right now</p>
+          ${state.leaderboard[0] ? `<div style="margin-top:12px"><a href="#/pr/${state.leaderboard[0].number}"><strong>#${state.leaderboard[0].number}</strong> ${escapeHtml(state.leaderboard[0].title)}</a></div>` : '<div class="small-text">Run a sync to bring in pull requests.</div>'}
+        </div>
+        <div class="panel">
+          <div class="eyebrow">Best taste so far</div>
+          <div class="community-list">
+            ${state.voters.slice(0, 3).map((person) => `
+              <a class="row-between" href="#/profile/${encodeURIComponent(person.handle)}">
+                <div class="avatar-row">
+                  ${avatarMarkup(person, 'large')}
+                  <div>
+                    <strong>${escapeHtml(person.displayName)}</strong>
+                    <div class="small-text">@${escapeHtml(person.handle)}</div>
+                  </div>
+                </div>
+                <strong>${person.totalClipsWon}</strong>
+              </a>
+            `).join('') || '<div class="small-text">No public voters yet.</div>'}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-2" style="margin-bottom:24px">
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Live leaderboard</p>
+            <h2 class="section-title">Most wanted now</h2>
+          </div>
+          <a class="ghost-btn" href="#/leaderboard">See all</a>
+        </div>
+        <div class="card-stack">
+          ${state.leaderboard.slice(0, 4).map(prCard).join('') || '<div class="empty-state">No pull requests are loaded yet. Run a sync and refresh.</div>'}
+        </div>
+      </section>
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Public investors</p>
+            <h2 class="section-title">People with taste</h2>
+          </div>
+        </div>
+        <div class="community-list">
+          ${state.voters.slice(0, 8).map((person) => `
+            <a class="community-card row-between" href="#/profile/${encodeURIComponent(person.handle)}">
+              <div class="avatar-row">
+                ${avatarMarkup(person)}
+                <div>
+                  <strong>${escapeHtml(person.displayName)}</strong>
+                  <div class="small-text">@${escapeHtml(person.handle)}</div>
+                </div>
+              </div>
+              <div style="text-align:right">
+                <strong>${person.totalClipsWon}</strong>
+                <div class="small-text">clips won</div>
+              </div>
+            </a>
+          `).join('') || '<div class="empty-state">Sign in and allocate clips to make the first public profile.</div>'}
+        </div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Browse</p>
+          <h2 class="section-title">Discovery board</h2>
+          <p class="section-subtitle">A broader browse surface for people who want to hunt before the consensus bar fills up.</p>
+        </div>
+        <div class="mini-actions">
+          <a class="ghost-btn" href="#/search">Search text</a>
+          <a class="ghost-btn" href="#/analyst">Dense table</a>
+        </div>
+      </div>
+      <div class="card-stack">${state.discoverPRs.map(prCard).join('') || '<div class="empty-state">No pull requests loaded.</div>'}</div>
+    </section>
+  `;
+}
+
+function renderLeaderboardPage() {
+  const page = document.getElementById('leaderboardPage');
+  page.innerHTML = `
+    <section class="panel">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Ranked by clips</p>
+          <h2 class="section-title">Public conviction leaderboard</h2>
+          <p class="section-subtitle">These are the pull requests currently collecting the most attention and the most public conviction.</p>
+        </div>
+      </div>
+      <div class="card-stack">${state.leaderboard.map(prCard).join('') || '<div class="empty-state">No leaderboard data available.</div>'}</div>
+    </section>
+  `;
+}
+
+function renderAnalystPage() {
+  const page = document.getElementById('analystPage');
+  page.innerHTML = `
+    <section class="panel">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Separate URL for power users</p>
+          <h2 class="section-title">Analyst view</h2>
+          <p class="section-subtitle">The old dense table stays alive here. It now includes clips, phase, and public voter pressure alongside the original triage signals.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>PR</th>
+              <th>Author</th>
+              <th>Clips</th>
+              <th>Voters</th>
+              <th>Phase</th>
+              <th>Greptile</th>
+              <th>CI</th>
+              <th>LOC</th>
+              <th>Score</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${state.analystPRs.map(pr => `
+              <tr class="click-row" onclick="window.location.hash = '#/pr/${pr.number}'">
+                <td><strong>#${pr.number}</strong> ${escapeHtml(pr.title)}</td>
+                <td>${escapeHtml(pr.author)}</td>
+                <td>${pr.totalClips}</td>
+                <td>${pr.voterCount}</td>
+                <td>${phaseLabel(pr.phase)}</td>
+                <td>${pr.greptileScore == null ? '-' : pr.greptileScore + '/5'}</td>
+                <td>${escapeHtml(pr.ciStatus)}</td>
+                <td>+${pr.additions} / -${pr.deletions}</td>
+                <td>${pr.compositeScore}</td>
+                <td>${timeAgo(pr.lastActivity)}</td>
+              </tr>
+            `).join('') || '<tr><td colspan="10">No pull requests found.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
+function renderSearchPage(results, query) {
+  const page = document.getElementById('searchPage');
+  page.innerHTML = `
+    <section class="panel">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Search title, body, and comments</p>
+          <h2 class="section-title">Find a bet before the crowd does</h2>
+        </div>
+      </div>
+      <div class="search-shell">
+        <div class="mini-actions">
+          <input class="search-input" id="searchInput" placeholder="Search pull requests, comments, auth, migrations..." value="${escapeHtml(query || '')}">
+          <button class="primary-btn" onclick="runSearch()">Search</button>
+        </div>
+      </div>
+      <div class="search-results">
+        ${results ? results.prs.map(pr => `
+          <article class="search-card">
+            <div class="row-between">
+              <div>
+                <h3 style="margin:0"><a href="#/pr/${pr.number}">#${pr.number} ${escapeHtml(pr.title)}</a></h3>
+                <div class="small-text">${pr.totalClips} clips · ${pr.voterCount} voters · ${escapeHtml(pr.author)}</div>
+              </div>
+              <span class="tag ${ciTone(pr.ciStatus)}">${escapeHtml(pr.ciStatus)}</span>
+            </div>
+            ${(pr.textMatches || []).map(match => `<p class="small-text" style="margin-top:12px"><strong>PR text:</strong> ${escapeHtml(match.excerpt || '')}</p>`).join('')}
+            ${(pr.commentMatches || []).map(match => `<p class="small-text" style="margin-top:12px"><strong>${escapeHtml(match.author)}:</strong> ${escapeHtml(match.excerpt || '')}</p>`).join('')}
+          </article>
+        `).join('') : '<div class="empty-state">Search for auth flows, migration work, CI pain, or whatever you want the crowd to fund.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderMyPage(allocations, ledger) {
+  const page = document.getElementById('myPage');
+  if (!state.session || !state.session.authenticated) {
+    page.innerHTML = `<section class="panel"><div class="empty-state">Connect X to see your clip balance, active positions, and reward history.</div></section>`;
+    return;
+  }
+  const user = state.session.user;
+  page.innerHTML = `
+    <div class="grid-2">
+      <section class="panel">
+        <p class="eyebrow">Wallet</p>
+        <h2 class="section-title">My Clips</h2>
+        <div class="metric-grid">
+          <div class="metric"><strong>${user.clipsBalance}</strong><div class="metric-label">available now</div></div>
+          <div class="metric"><strong>${user.totalClipsWon}</strong><div class="metric-label">bonus won</div></div>
+          <div class="metric"><strong>${allocations.length}</strong><div class="metric-label">live positions</div></div>
+        </div>
+        <div class="tag-row">${(user.badges || []).map(b => badgeMarkup(b.label, 'warn')).join('') || '<span class="small-text">No taste badges yet.</span>'}</div>
+      </section>
+      <section class="panel">
+        <p class="eyebrow">Live positions</p>
+        <div class="card-stack">
+          ${allocations.map(item => `
+            <article class="profile-card">
+              <div class="row-between">
+                <div>
+                  <h3><a href="#/pr/${item.prNumber}">#${item.prNumber} ${escapeHtml(item.title)}</a></h3>
+                  <div class="small-text">First entered at clip ${item.firstPosition}</div>
+                </div>
+                <div style="text-align:right">
+                  <strong>${item.clips}</strong>
+                  <div class="small-text">live clips</div>
+                </div>
+              </div>
+              <div class="small-text" style="margin-top:10px">Average reward profile: ${item.avgBonusPct}% bonus if this PR merges from your current lots.</div>
+            </article>
+          `).join('') || '<div class="empty-state">No live allocations yet. Hunt for a pull request and take a position.</div>'}
+        </div>
+      </section>
+    </div>
+
+    <section class="panel" style="margin-top:24px">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Transparent history</p>
+          <h2 class="section-title">Ledger</h2>
+        </div>
+      </div>
+      <div class="ledger-list">
+        ${ledger.map(item => `
+          <div class="ledger-item row-between">
+            <div>
+              <strong>${escapeHtml(item.eventType.replace(/_/g, ' '))}</strong>
+              <div class="small-text">${item.prNumber ? '#' + item.prNumber + ' ' + escapeHtml(item.prTitle || '') : 'Account event'}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+            </div>
+            <div style="text-align:right">
+              <strong style="color:${item.deltaClips >= 0 ? 'var(--green)' : 'var(--red)'}">${item.deltaClips >= 0 ? '+' : ''}${item.deltaClips}</strong>
+              <div class="small-text">${formatDate(item.createdAt)}</div>
+            </div>
+          </div>
+        `).join('') || '<div class="empty-state">No ledger entries yet.</div>'}
+      </div>
+    </section>
+  `;
+}
+
+function renderProfilePage(profile) {
+  const page = document.getElementById('profilePage');
+  page.innerHTML = `
+    <div class="profile-columns">
+      <section class="panel">
+        <div class="avatar-row" style="margin-bottom:18px">
+          ${avatarMarkup(profile, 'large')}
+          <div>
+            <h2 class="section-title" style="margin-bottom:6px">${escapeHtml(profile.displayName)}</h2>
+            <div class="small-text"><a href="${escapeHtml(profile.xUrl)}" target="_blank" rel="noreferrer">@${escapeHtml(profile.handle)}</a></div>
+          </div>
+        </div>
+        <div class="profile-metrics">
+          <div class="metric"><strong>${profile.clipsBalance}</strong><div class="metric-label">available clips</div></div>
+          <div class="metric"><strong>${profile.totalClipsWon}</strong><div class="metric-label">bonus won</div></div>
+          <div class="metric"><strong>${profile.activeAllocations.length}</strong><div class="metric-label">live positions</div></div>
+        </div>
+        <div class="tag-row" style="margin-top:16px">
+          ${(profile.badges || []).map(b => badgeMarkup(b.label, 'warn')).join('') || '<span class="small-text">No badges yet.</span>'}
+        </div>
+      </section>
+
+      <section class="panel">
+        <p class="eyebrow">Best investments</p>
+        <div class="card-stack">
+          ${profile.bestInvestments.map(item => `
+            <article class="profile-card">
+              <h3><a href="#/pr/${item.prNumber}">#${item.prNumber} ${escapeHtml(item.title)}</a></h3>
+              <div class="row-between" style="margin-top:10px">
+                <span class="small-text">Entered around clip ${item.firstPosition}</span>
+                <strong>${item.bonusWon} won</strong>
+              </div>
+            </article>
+          `).join('') || '<div class="empty-state">No merged winners yet.</div>'}
+        </div>
+      </section>
+    </div>
+
+    <div class="grid-2" style="margin-top:24px">
+      <section class="panel">
+        <p class="eyebrow">Current votes</p>
+        <div class="card-stack">
+          ${profile.activeAllocations.map(item => `
+            <article class="profile-card">
+              <h3><a href="#/pr/${item.prNumber}">#${item.prNumber} ${escapeHtml(item.title)}</a></h3>
+              <div class="row-between" style="margin-top:10px">
+                <span class="small-text">First entered at clip ${item.firstPosition}</span>
+                <strong>${item.clips} live clips</strong>
+              </div>
+            </article>
+          `).join('') || '<div class="empty-state">No open positions right now.</div>'}
+        </div>
+      </section>
+      <section class="panel">
+        <p class="eyebrow">Full vote history</p>
+        <div class="ledger-list">
+          ${profile.history.map(item => `
+            <div class="ledger-item row-between">
+              <div>
+                <strong>${escapeHtml(item.eventType.replace(/_/g, ' '))}</strong>
+                <div class="small-text">${item.prNumber ? '#' + item.prNumber + ' ' + escapeHtml(item.prTitle || '') : 'Account event'}${item.note ? ' - ' + escapeHtml(item.note) : ''}</div>
+              </div>
+              <div style="text-align:right">
+                <strong style="color:${item.deltaClips >= 0 ? 'var(--green)' : 'var(--red)'}">${item.deltaClips >= 0 ? '+' : ''}${item.deltaClips}</strong>
+                <div class="small-text">${formatDate(item.createdAt)}</div>
+              </div>
+            </div>
+          `).join('') || '<div class="empty-state">No public history yet.</div>'}
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+function renderDetailPage(pr, comments) {
+  const page = document.getElementById('detailPage');
+  page.innerHTML = `
+    <div class="detail-columns">
+      <section class="panel">
+        <div class="tag-row" style="margin-bottom:12px">
+          ${badgeMarkup('#' + pr.number)}
+          ${badgeMarkup(pr.state, pr.state === 'merged' ? 'good' : pr.state === 'closed' ? 'bad' : '')}
+          ${badgeMarkup(phaseLabel(pr.phase), pr.phase === 'discovery' ? 'good' : pr.phase === 'momentum' ? 'warn' : 'dark')}
+        </div>
+        <h1 class="detail-title" style="font-size:clamp(34px, 5vw, 60px); margin:0 0 12px">${escapeHtml(pr.title)}</h1>
+        <p class="section-subtitle">${escapeHtml(pr.body || pr.excerpt || 'No description provided.')}</p>
+        ${progressMarkup(pr)}
+        <div class="metric-grid">
+          <div class="metric"><strong>${pr.totalClips}</strong><div class="metric-label">clips on this PR</div></div>
+          <div class="metric"><strong>${pr.voterCount}</strong><div class="metric-label">public voters</div></div>
+          <div class="metric"><strong>${pr.nextClipBonusPct}%</strong><div class="metric-label">next clip bonus</div></div>
+        </div>
+        <div class="detail-block">
+          <h3>Allocate clips</h3>
+          <p class="small-text">Set an absolute position. If you trim later, the newest lots unwind first, which keeps your earliest signal intact.</p>
+          ${cardActions(pr)}
+        </div>
+        <div class="detail-block" style="margin-top:14px">
+          <h3>Public voters</h3>
+          <div class="voter-list">
+            ${(pr.voters || []).map(voter => `
+              <a class="row-between" href="#/profile/${encodeURIComponent(voter.handle)}">
+                <div class="avatar-row">
+                  ${avatarMarkup(voter)}
+                  <div>
+                    <strong>${escapeHtml(voter.displayName)}</strong>
+                    <div class="small-text">@${escapeHtml(voter.handle)} · first clip ${voter.firstPosition}</div>
+                  </div>
+                </div>
+                <div style="text-align:right">
+                  <strong>${voter.clips}</strong>
+                  <div class="small-text">${voter.avgBonusPct}% avg bonus</div>
+                </div>
+              </a>
+            `).join('') || '<div class="empty-state">No public voters yet.</div>'}
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="detail-block">
+          <h3>Signals</h3>
+          <div class="metric-row"><span class="metric-label">Composite score</span><strong>${pr.compositeScore}</strong></div>
+          <div class="metric-row"><span class="metric-label">Greptile</span><strong>${pr.greptileScore == null ? '-' : pr.greptileScore + '/5'}</strong></div>
+          <div class="metric-row"><span class="metric-label">CI</span><strong>${escapeHtml(pr.ciStatus)}</strong></div>
+          <div class="metric-row"><span class="metric-label">Conflicts</span><strong>${pr.hasConflicts ? 'Yes' : 'No'}</strong></div>
+          <div class="metric-row"><span class="metric-label">LOC</span><strong>+${pr.additions} / -${pr.deletions}</strong></div>
+          <div class="metric-row"><span class="metric-label">Comments</span><strong>${pr.humanComments}</strong></div>
+        </div>
+        <div class="detail-block" style="margin-top:14px">
+          <h3>Checks</h3>
+          <div class="card-stack">
+            ${(pr.checks || []).map(check => `<div class="row-between"><span>${escapeHtml(check.name)}</span><span class="tag ${ciTone(check.conclusion === 'success' ? 'passing' : check.status === 'completed' ? 'failing' : 'pending')}">${escapeHtml(check.conclusion || check.status)}</span></div>`).join('') || '<div class="small-text">No checks available.</div>'}
+          </div>
+        </div>
+        <div class="detail-block" style="margin-top:14px">
+          <h3>Comments</h3>
+          <div class="card-stack">
+            ${comments.slice(0, 8).map(comment => `
+              <div>
+                <div class="small-text" style="margin-bottom:6px">${escapeHtml(comment.author)} · ${formatDate(comment.created_at)}</div>
+                <div>${escapeHtml((comment.body || '').slice(0, 300))}</div>
+              </div>
+            `).join('') || '<div class="small-text">No comments synced.</div>'}
+          </div>
+        </div>
+      </section>
+    </div>
+  `;
+}
+
+async function submitAllocation(prNumber) {
+  const input = document.getElementById(`alloc-${prNumber}`);
+  const clips = Number(input && input.value || 0);
+  try {
+    const result = await api(`/api/prs/${prNumber}/allocation`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clips }),
+    });
+    state.session = result.session;
+    renderSessionControls();
+    showBanner('Allocation updated.', '');
+    await rerenderCurrentRoute();
+  } catch (err) {
+    showBanner(err.message, 'error');
+  }
+}
+
+function adjustAllocation(prNumber, delta) {
+  const input = document.getElementById(`alloc-${prNumber}`);
+  const current = Number(input && input.value || 0);
+  input.value = Math.max(0, current + delta);
+}
+
+async function logout() {
+  try {
+    await api('/api/auth/logout', { method: 'POST' });
+    await loadCore();
+    showBanner('Signed out.', '');
+    window.location.hash = '#/';
+  } catch (err) {
+    showBanner(err.message, 'error');
+  }
+}
+
+function openAuthModal() {
+  document.getElementById('authModal').classList.add('open');
+}
+
+function closeAuthModal() {
+  document.getElementById('authModal').classList.remove('open');
+}
+
+async function runSearch() {
+  const q = document.getElementById('searchInput').value.trim();
+  if (!q) return;
+  window.location.hash = '#/search?q=' + encodeURIComponent(q);
+}
+
+async function rerenderCurrentRoute() {
+  const route = routeInfo();
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('[data-nav]').forEach(link => link.classList.remove('active'));
+  const navTarget = route.page === 'detail' || route.page === 'profile' ? 'discover' : route.page;
+  const activeNav = document.querySelector(`[data-nav="${navTarget}"]`);
+  if (activeNav) activeNav.classList.add('active');
+
+  if (route.page === 'discover') {
+    await ensureDiscoverData();
+    document.getElementById('discoverPage').classList.add('active');
+    renderDiscoverPage();
+    return;
+  }
+  if (route.page === 'leaderboard') {
+    await ensureDiscoverData();
+    document.getElementById('leaderboardPage').classList.add('active');
+    renderLeaderboardPage();
+    return;
+  }
+  if (route.page === 'analyst') {
+    await ensureAnalystData();
+    document.getElementById('analystPage').classList.add('active');
+    renderAnalystPage();
+    return;
+  }
+  if (route.page === 'search') {
+    document.getElementById('searchPage').classList.add('active');
+    if (!route.q) {
+      renderSearchPage(null, '');
+      return;
+    }
+    const results = await api('/api/search?q=' + encodeURIComponent(route.q) + '&limit=30');
+    renderSearchPage(results, route.q);
+    return;
+  }
+  if (route.page === 'my') {
+    document.getElementById('myPage').classList.add('active');
+    if (!state.session || !state.session.authenticated) {
+      renderMyPage([], []);
+      return;
+    }
+    const [allocations, ledger] = await Promise.all([
+      api('/api/me/allocations'),
+      api('/api/me/ledger'),
+    ]);
+    renderMyPage(allocations, ledger);
+    return;
+  }
+  if (route.page === 'detail') {
+    document.getElementById('detailPage').classList.add('active');
+    const [pr, comments] = await Promise.all([
+      api('/api/prs/' + route.prNumber),
+      api('/api/prs/' + route.prNumber + '/comments'),
+    ]);
+    renderDetailPage(pr, comments);
+    return;
+  }
+  if (route.page === 'profile') {
+    document.getElementById('profilePage').classList.add('active');
+    const profile = await api('/api/users/' + encodeURIComponent(route.handle));
+    renderProfilePage(profile);
+  }
+}
+
+document.getElementById('cancelAuth').addEventListener('click', closeAuthModal);
+document.getElementById('authModal').addEventListener('click', (event) => {
+  if (event.target.id === 'authModal') closeAuthModal();
 });
 
-// --- Column sort ---
-document.querySelectorAll('th[data-sort]').forEach(th => {
-  th.addEventListener('click', () => {
-    const key = th.dataset.sort;
-    if (sortKey === key) sortDir *= -1;
-    else { sortKey = key; sortDir = -1; }
-    currentPage = 1;
-    renderTable();
-  });
+document.getElementById('authForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const form = new FormData(event.target);
+  try {
+    state.session = await api('/api/auth/demo-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        handle: form.get('handle'),
+        displayName: form.get('displayName'),
+        verifiedType: form.get('verifiedType'),
+        subscriptionType: form.get('subscriptionType'),
+      }),
+    });
+    closeAuthModal();
+    renderSessionControls();
+    showBanner('Connected. Your 10 clips are live.', '');
+    await rerenderCurrentRoute();
+  } catch (err) {
+    showBanner(err.message, 'error');
+  }
 });
 
-// --- Filter changes ---
-['filterState', 'filterMinScore', 'filterCI', 'filterNoConflicts'].forEach(id => {
-  document.getElementById(id).addEventListener('change', loadPRs);
+window.addEventListener('hashchange', () => {
+  rerenderCurrentRoute().catch((err) => showBanner(err.message, 'error'));
 });
 
-// --- Init ---
-loadStats();
-loadPRs().then(() => handleRoute());
+(async function init() {
+  try {
+    await loadCore();
+    await rerenderCurrentRoute();
+  } catch (err) {
+    showBanner(err.message, 'error');
+  }
+})();
 </script>
 </body>
 </html>

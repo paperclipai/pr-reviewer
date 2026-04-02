@@ -3,6 +3,7 @@ import { getDb } from '../db/client';
 import { BatchStatement } from '../db/types';
 import { parseGreptileScores } from './comments';
 import { CheckRun } from './checks';
+import { settleResolvedLots } from '../clip-store';
 import chalk from 'chalk';
 
 export interface SyncOptions {
@@ -148,6 +149,10 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
           pr.updated_at,
         ],
       });
+      batch.push({
+        sql: `INSERT OR REPLACE INTO pr_search_fts(rowid, number, title, body) VALUES (?, ?, ?, ?)`,
+        params: [pr.number, pr.number, pr.title, pr.body ?? ''],
+      });
 
       // Upsert comments + FTS
       for (const comment of comments) {
@@ -247,6 +252,8 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
     INSERT INTO sync_state (key, value) VALUES ('last_sync_at', datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value=datetime('now')
   `);
+
+  await settleResolvedLots(db);
 
   const synced = completed - skipped;
   console.log(chalk.green(`\nSync complete. ${synced} PRs synced, ${skipped} unchanged (skipped).`));

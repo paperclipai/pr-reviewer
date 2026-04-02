@@ -45,6 +45,78 @@ CREATE TABLE IF NOT EXISTS llm_reviews (
 
 CREATE INDEX IF NOT EXISTS idx_reviews_pr ON llm_reviews(pr_number);
 
+CREATE TABLE IF NOT EXISTS pr_comments (
+  comment_id INTEGER PRIMARY KEY,
+  pr_number INTEGER NOT NULL REFERENCES pull_requests(number),
+  author TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_comments_pr ON pr_comments(pr_number);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS pr_comments_fts USING fts5(
+  body,
+  content=pr_comments,
+  content_rowid=comment_id
+);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS pr_search_fts USING fts5(
+  number UNINDEXED,
+  title,
+  body
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  handle TEXT NOT NULL UNIQUE,
+  display_name TEXT NOT NULL,
+  avatar_url TEXT,
+  verified_type TEXT,
+  subscription_type TEXT,
+  clips_balance INTEGER NOT NULL DEFAULT 0,
+  total_clips_won INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  expires_at TEXT NOT NULL,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS clip_allocation_lots (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pr_number INTEGER NOT NULL REFERENCES pull_requests(number) ON DELETE CASCADE,
+  clips_locked INTEGER NOT NULL,
+  clips_remaining INTEGER NOT NULL,
+  bonus_rate REAL NOT NULL,
+  bonus_rate_bps INTEGER NOT NULL,
+  position_start INTEGER NOT NULL,
+  position_end INTEGER NOT NULL,
+  status TEXT NOT NULL DEFAULT 'open',
+  outcome TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS clip_ledger (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  pr_number INTEGER REFERENCES pull_requests(number) ON DELETE SET NULL,
+  lot_id TEXT REFERENCES clip_allocation_lots(id) ON DELETE SET NULL,
+  event_type TEXT NOT NULL,
+  delta_clips INTEGER NOT NULL,
+  note TEXT,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
