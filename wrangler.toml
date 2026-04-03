@@ -11,3 +11,11 @@ fallthrough = false
 binding = "DB"
 database_name = "pr-triage-db"
 database_id = "75a1a683-e935-4eb8-a0ba-7349529ff692"
+
+[env.canary]
+name = "pr-triage-canary"
+
+[[env.canary.d1_databases]]
+binding = "DB"
+database_name = "pr-triage-canary-db"
+database_id = "19c21a73-f375-4b0d-9844-0f0e573243d5"
