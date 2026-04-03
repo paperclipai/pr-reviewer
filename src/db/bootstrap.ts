@@ -1,6 +1,7 @@
 import type { DbClient } from './types';
 
 const initializationPromises = new WeakMap<DbClient, Promise<DbClient>>();
+const SCHEMA_VERSION = '1';
 
 async function execStatement(db: DbClient, sql: string): Promise<void> {
   const normalized = sql.trim().replace(/\s+/g, ' ');
@@ -59,10 +60,17 @@ export async function initializeDb<T extends DbClient>(db: T): Promise<T> {
   if (existing) return await existing as T;
 
   const initialization = (async () => {
-    for (const statement of getSchemaStatements()) {
-      await execStatement(db, statement);
+    if (await shouldInitializeSchema(db)) {
+      for (const statement of getSchemaStatements()) {
+        await execStatement(db, statement);
+      }
+      await runMigrations(db);
+      await db.run(
+        `INSERT INTO sync_state (key, value) VALUES ('schema_version', ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+        [SCHEMA_VERSION],
+      );
     }
-    await runMigrations(db);
     return db;
   })();
 
@@ -220,4 +228,15 @@ function getSchemaStatements(): string[] {
     .split(/;\s*\n/)
     .map((statement) => statement.trim())
     .filter(Boolean);
+}
+
+async function shouldInitializeSchema(db: DbClient): Promise<boolean> {
+  try {
+    const row = await db.get<{ value: string }>(
+      `SELECT value FROM sync_state WHERE key = 'schema_version'`,
+    );
+    return row?.value !== SCHEMA_VERSION;
+  } catch {
+    return true;
+  }
 }

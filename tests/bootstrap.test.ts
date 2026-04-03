@@ -39,6 +39,17 @@ describe('initializeDb', () => {
     expect(calls.exec.length).toBeGreaterThan(10);
     expect(calls.exec[0]).toContain('CREATE TABLE IF NOT EXISTS pull_requests');
     expect(calls.exec[0].trim().endsWith(';')).toBe(true);
+    expect(calls.run).toHaveLength(1);
+    expect(calls.run[0]).toContain(`INSERT INTO sync_state (key, value) VALUES ('schema_version', ?)`);
+  });
+
+  test('skips schema work when the version marker is already present', async () => {
+    const { db, calls } = createFakeDb();
+    db.get = async () => ({ value: '1' });
+
+    await initializeDb(db);
+
+    expect(calls.exec).toEqual([]);
     expect(calls.run).toEqual([]);
   });
 });
