@@ -51,7 +51,7 @@ async function runMigrations(db: DbClient): Promise<void> {
   try {
     await execStatement(db, `CREATE VIRTUAL TABLE IF NOT EXISTS pr_search_fts USING fts5(number UNINDEXED, title, body)`);
   } catch {
-    // Virtual table already exists
+    // Virtual table already exists or FTS5 not available
   }
 }
 
@@ -62,7 +62,18 @@ export async function initializeDb<T extends DbClient>(db: T): Promise<T> {
   const initialization = (async () => {
     if (await shouldInitializeSchema(db)) {
       for (const statement of getSchemaStatements()) {
-        await execStatement(db, statement);
+        // FTS5 virtual tables may not be available on all D1 environments
+        const isFts = /CREATE\s+VIRTUAL\s+TABLE/i.test(statement);
+        try {
+          await execStatement(db, statement);
+        } catch (err) {
+          if (isFts) {
+            // FTS5 is optional - search will degrade gracefully
+            console.warn('FTS5 table creation skipped:', (err as Error).message);
+          } else {
+            throw err;
+          }
+        }
       }
       await runMigrations(db);
       await db.run(
