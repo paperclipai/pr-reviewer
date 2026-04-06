@@ -261,6 +261,8 @@ async function safeSearch<T>(fn: () => Promise<T>, fallback: () => Promise<T>): 
 export function createRoutes(getDb: () => Promise<DbClient>): Hono {
   const api = new Hono();
 
+  api.get('/health', (c) => c.json({ ok: true, ts: new Date().toISOString() }));
+
   api.get('/session', async (c) => {
     const db = await getDb();
     await settleResolvedLots(db);

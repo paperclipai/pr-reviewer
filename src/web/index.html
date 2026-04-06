@@ -59,17 +59,15 @@
     position: sticky;
     top: 0;
     z-index: 50;
-    margin: 8px 0 clamp(1.5rem, 1rem + 1vw, 2.5rem);
+    margin: 0 0 clamp(1.5rem, 1rem + 1vw, 2.5rem);
     padding: 14px 18px;
-    border: 1px solid rgba(255,255,255,0.72);
-    border-radius: var(--radius-pill);
-    backdrop-filter: blur(20px) saturate(1.4);
-    background: rgba(255, 255, 255, 0.82);
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: var(--paper);
     display: flex;
     gap: 18px;
     align-items: center;
     justify-content: space-between;
-    box-shadow: var(--shadow);
   }
 
   .brand {
@@ -175,20 +173,24 @@
   }
 
   .hero-main,
-  .hero-side,
-  .panel,
+  .hero-side {
+    border-radius: var(--radius-lg);
+  }
+
+  .panel {
+    border-radius: 0;
+    box-shadow: none;
+  }
+
   .dark-panel {
-    border-radius: var(--radius-xl);
-    box-shadow: var(--shadow);
+    border-radius: var(--radius-md);
   }
 
   .hero-main {
     position: relative;
     overflow: hidden;
     padding: clamp(1.5rem, 1rem + 1.2vw, 2.5rem);
-    background:
-      linear-gradient(180deg, rgba(245, 243, 240, 0.88), rgba(255, 255, 255, 0.96)),
-      linear-gradient(135deg, rgba(34, 197, 94, 0.06), rgba(245, 158, 11, 0.08));
+    background: var(--paper-2);
     border: 1px solid var(--line);
   }
 
@@ -265,9 +267,9 @@
   }
 
   .panel {
-    padding: clamp(1.25rem, 0.9rem + 0.8vw, 2rem);
-    background: var(--card);
-    border: 1px solid var(--line);
+    padding: clamp(1.25rem, 0.9rem + 0.8vw, 2rem) 0;
+    background: transparent;
+    border-top: 1px solid var(--line);
   }
 
   .dark-panel {
@@ -510,7 +512,7 @@
 
   .table-wrap {
     overflow: auto;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-md);
     border: 1px solid rgba(12,12,12,0.1);
     background: rgba(12,12,12,0.98);
     color: #f5f3f0;
@@ -638,6 +640,86 @@
     font-family: "JetBrains Mono", monospace;
   }
 
+  .full-error {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 50vh;
+    text-align: center;
+    gap: 16px;
+  }
+
+  .full-error h2 {
+    font-family: "Instrument Serif", serif;
+    font-weight: 400;
+    font-size: 32px;
+    margin: 0;
+  }
+
+  .full-error p {
+    color: var(--ink-soft);
+    max-width: 44ch;
+  }
+
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--paper-2) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: var(--radius-md);
+    min-height: 20px;
+  }
+
+  .skeleton-block {
+    height: 120px;
+    margin-bottom: 14px;
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  .onboarding-banner {
+    padding: 20px 24px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--paper-2);
+    margin-bottom: 24px;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+
+  .onboarding-banner .onboard-step {
+    flex: 1;
+    min-width: 160px;
+  }
+
+  .onboarding-banner .step-num {
+    display: inline-block;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--card-dark);
+    color: #fff;
+    text-align: center;
+    line-height: 24px;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .onboarding-banner .dismiss-btn {
+    background: none;
+    border: none;
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-size: 18px;
+    padding: 0;
+    line-height: 1;
+  }
+
   @media (max-width: 980px) {
     .masthead { flex-direction: column; align-items: stretch; }
     .hero,
@@ -647,10 +729,11 @@
 
   @media (max-width: 720px) {
     .shell { padding: 16px; }
-    .hero-main, .hero-side, .panel, .dark-panel { padding: 20px; }
+    .hero-main, .hero-side, .dark-panel { padding: 20px; }
     .metric-grid { grid-template-columns: 1fr; }
     .brand { align-items: flex-start; }
     .nav { justify-content: flex-start; }
+    .onboarding-banner { flex-direction: column; }
   }
 </style>
 </head>
@@ -690,7 +773,7 @@
 <div class="modal-backdrop" id="authModal">
   <div class="modal">
     <h2>Connect X</h2>
-    <p>Real X OAuth is the next step once app credentials are wired. This build ships with a local demo connect flow so you can exercise the full clips product now.</p>
+    <p>Connect your X account to start allocating clips and building your public taste profile. (Demo mode)</p>
     <form id="authForm">
       <div class="form-row">
         <div style="flex:1 1 200px">
@@ -855,14 +938,13 @@ function cardActions(pr) {
   return `
     <div class="allocation-box">
       <div class="row-between small-text">
-        <span>Your live position</span>
+        <span>Your clips on this PR</span>
         <strong>${pr.viewerAllocation || 0} clips</strong>
       </div>
+      <div class="small-text" style="margin:6px 0;color:var(--gold-deep)">Next clip bonus: ${pr.nextClipBonusPct}%</div>
       <div class="mini-actions" style="margin-top:10px">
-        <input type="number" min="0" step="1" value="${pr.viewerAllocation || 0}" id="alloc-${pr.number}" style="max-width:140px">
-        <button class="ghost-btn" onclick="submitAllocation(${pr.number})">Set clips</button>
-        <button class="pill" onclick="adjustAllocation(${pr.number}, 1)">+1</button>
-        <button class="pill" onclick="adjustAllocation(${pr.number}, 3)">+3</button>
+        <input type="number" min="0" step="1" value="${pr.viewerAllocation || 0}" id="alloc-${pr.number}" style="max-width:140px" aria-label="Clips to allocate">
+        <button class="primary-btn" onclick="submitAllocation(${pr.number})">Set clips</button>
       </div>
     </div>
   `;
@@ -961,63 +1043,72 @@ async function ensureAnalystData() {
   state.analystPRs = await api('/api/prs?state=open&sort=score&limit=100');
 }
 
+function onboardingBanner() {
+  if (state.session && state.session.authenticated) return '';
+  if (localStorage.getItem('clips_onboarding_dismissed')) return '';
+  return `
+    <div class="onboarding-banner" id="onboardingBanner">
+      <div class="onboard-step">
+        <span class="step-num">1</span>
+        <strong style="display:block;margin-bottom:4px">Connect X</strong>
+        <span class="small-text">Any paid X tier is eligible. Your handle joins the public conviction graph.</span>
+      </div>
+      <div class="onboard-step">
+        <span class="step-num">2</span>
+        <strong style="display:block;margin-bottom:4px">Allocate early</strong>
+        <span class="small-text">The first 50 clips on a PR get the best bonus. Late followers still recover principal.</span>
+      </div>
+      <div class="onboard-step">
+        <span class="step-num">3</span>
+        <strong style="display:block;margin-bottom:4px">Win when it merges</strong>
+        <span class="small-text">Merged PRs return principal + bonus. Closed PRs return principal only.</span>
+      </div>
+      <button class="dismiss-btn" onclick="dismissOnboarding()" title="Dismiss">&times;</button>
+    </div>
+  `;
+}
+
 function renderDiscoverPage() {
   const page = document.getElementById('discoverPage');
   const session = state.session;
   const user = session && session.authenticated ? session.user : null;
   page.innerHTML = `
-    <div class="hero">
+    ${onboardingBanner()}
+
+    <div class="hero" style="grid-template-columns:1fr;max-width:720px">
       <div class="hero-main">
         <div class="eyebrow">Public taste market for pull requests</div>
-        <h1>Find the pull requests before everyone else does.</h1>
-        <p>Connect your X account, collect 10 clips, and back the work you believe should ship. The first 50 clips on a pull request live in discovery. From there the bonus fades until 500 clips, where the crowd has fully caught up.</p>
+        <h1 style="max-width:16ch">Find the PRs before everyone else.</h1>
+        <p>Back the work you believe should ship. Early conviction earns the best bonus.</p>
         <div class="hero-actions">
           ${user ? `<a class="primary-btn" href="#/my-clips">Spend your ${user.clipsBalance} clips</a>` : `<button class="primary-btn" onclick="openAuthModal()">Connect X and get 10 clips</button>`}
-          <a class="ghost-btn" href="#/analyst">Open analyst view</a>
-        </div>
-        <div class="stats-strip">
-          <div class="stat-chip"><strong>${state.stats.openPRs}</strong><span>live pull requests</span></div>
-          <div class="stat-chip"><strong>${state.stats.activeClips}</strong><span>clips in motion</span></div>
-          <div class="stat-chip"><strong>${state.stats.activeVoters}</strong><span>public voters</span></div>
-          <div class="stat-chip"><strong>${state.stats.discoveryCap}/${state.stats.consensusCap}</strong><span>discovery / consensus</span></div>
         </div>
       </div>
-      <aside class="hero-side">
-        <div class="side-block dark-panel">
-          <div class="eyebrow" style="color:rgba(249,242,231,0.58)">How it works</div>
-          <div class="steps">
-            <div class="step"><strong>1. Connect X</strong><p>Any paid X tier is eligible in this build. Your handle becomes part of the public conviction graph.</p></div>
-            <div class="step"><strong>2. Allocate early</strong><p>The first 50 clips on a PR get the best reward profile. Late followers still get principal back, but not the same upside.</p></div>
-            <div class="step"><strong>3. Win when it merges</strong><p>Merged PRs return principal plus any earned bonus. Closed PRs return principal only, so bad taste costs time, not extinction.</p></div>
-          </div>
-        </div>
-        <div class="side-block">
-          <div class="eyebrow">Community pulse</div>
-          <p class="spotlight-number">${state.leaderboard[0] ? state.leaderboard[0].totalClips : 0}</p>
-          <p class="small-text">clips on the hottest PR right now</p>
-          ${state.leaderboard[0] ? `<div style="margin-top:12px"><a href="#/pr/${state.leaderboard[0].number}"><strong>#${state.leaderboard[0].number}</strong> ${escapeHtml(state.leaderboard[0].title)}</a></div>` : '<div class="small-text">Run a sync to bring in pull requests.</div>'}
-        </div>
-        <div class="side-block">
-          <div class="eyebrow">Best taste so far</div>
-          <div class="community-list">
-            ${state.voters.slice(0, 3).map((person) => `
-              <a class="row-between" href="#/profile/${encodeURIComponent(person.handle)}">
-                <div class="avatar-row">
-                  ${avatarMarkup(person, 'large')}
-                  <div>
-                    <strong>${escapeHtml(person.displayName)}</strong>
-                    <div class="small-text">@${escapeHtml(person.handle)}</div>
-                  </div>
-                </div>
-                <strong>${person.totalClipsWon}</strong>
-              </a>
-            `).join('') || '<div class="small-text">No public voters yet.</div>'}
-          </div>
-        </div>
-      </aside>
     </div>
 
-    <div class="grid-2" style="margin-bottom:24px">
+    <div class="stats-strip" style="margin-bottom:24px">
+      <div class="stat-chip"><strong>${state.stats.openPRs}</strong><span>live PRs</span></div>
+      <div class="stat-chip"><strong>${state.stats.activeClips}</strong><span>clips in motion</span></div>
+      <div class="stat-chip"><strong>${state.stats.activeVoters}</strong><span>public voters</span></div>
+      <div class="stat-chip"><strong>${state.stats.discoveryCap}/${state.stats.consensusCap}</strong><span>discovery / consensus</span></div>
+    </div>
+
+    <section class="panel">
+      <div class="section-header">
+        <div>
+          <p class="eyebrow">Browse</p>
+          <h2 class="section-title">Discovery board</h2>
+          <p class="section-subtitle">Hunt for pull requests before the consensus bar fills up.</p>
+        </div>
+        <div class="mini-actions">
+          <a class="ghost-btn" href="#/search">Search</a>
+          <a class="ghost-btn" href="#/analyst">Table view</a>
+        </div>
+      </div>
+      <div class="card-stack">${state.discoverPRs.map(prCard).join('') || '<div class="empty-state">No pull requests loaded. Run a sync and refresh.</div>'}</div>
+    </section>
+
+    <div class="grid-2" style="margin-top:24px">
       <section class="panel">
         <div class="section-header">
           <div>
@@ -1027,13 +1118,13 @@ function renderDiscoverPage() {
           <a class="ghost-btn" href="#/leaderboard">See all</a>
         </div>
         <div class="card-stack">
-          ${state.leaderboard.slice(0, 4).map(prCard).join('') || '<div class="empty-state">No pull requests are loaded yet. Run a sync and refresh.</div>'}
+          ${state.leaderboard.slice(0, 4).map(prCard).join('') || '<div class="empty-state">No leaderboard data yet.</div>'}
         </div>
       </section>
       <section class="panel">
         <div class="section-header">
           <div>
-            <p class="eyebrow">Public investors</p>
+            <p class="eyebrow">Community</p>
             <h2 class="section-title">People with taste</h2>
           </div>
         </div>
@@ -1056,21 +1147,6 @@ function renderDiscoverPage() {
         </div>
       </section>
     </div>
-
-    <section class="panel">
-      <div class="section-header">
-        <div>
-          <p class="eyebrow">Browse</p>
-          <h2 class="section-title">Discovery board</h2>
-          <p class="section-subtitle">A broader browse surface for people who want to hunt before the consensus bar fills up.</p>
-        </div>
-        <div class="mini-actions">
-          <a class="ghost-btn" href="#/search">Search text</a>
-          <a class="ghost-btn" href="#/analyst">Dense table</a>
-        </div>
-      </div>
-      <div class="card-stack">${state.discoverPRs.map(prCard).join('') || '<div class="empty-state">No pull requests loaded.</div>'}</div>
-    </section>
   `;
 }
 
@@ -1151,8 +1227,28 @@ function renderSearchPage(results, query) {
       </div>
       <div class="search-shell">
         <div class="mini-actions">
-          <input class="search-input" id="searchInput" placeholder="Search pull requests, comments, auth, migrations..." value="${escapeHtml(query || '')}">
+          <input class="search-input" id="searchInput" placeholder="Search pull requests, comments..." value="${escapeHtml(query || '')}">
           <button class="primary-btn" onclick="runSearch()">Search</button>
+        </div>
+        <div class="filters-row">
+          <select class="filter-select" id="filterState" onchange="runSearch()">
+            <option value="">All states</option>
+            <option value="open">Open</option>
+            <option value="merged">Merged</option>
+            <option value="closed">Closed</option>
+          </select>
+          <select class="filter-select" id="filterPhase" onchange="runSearch()">
+            <option value="">All phases</option>
+            <option value="discovery">Discovery</option>
+            <option value="momentum">Momentum</option>
+            <option value="consensus">Consensus</option>
+          </select>
+          <select class="filter-select" id="filterSort" onchange="runSearch()">
+            <option value="">Relevance</option>
+            <option value="clips">Most clips</option>
+            <option value="score">Highest score</option>
+            <option value="recent">Most recent</option>
+          </select>
         </div>
       </div>
       <div class="search-results">
@@ -1278,25 +1374,25 @@ function renderProfilePage(profile) {
       </section>
     </div>
 
-    <div class="grid-2" style="margin-top:24px">
-      <section class="panel">
-        <p class="eyebrow">Current votes</p>
-        <div class="card-stack">
-          ${profile.activeAllocations.map(item => `
-            <article class="profile-card">
-              <h3><a href="#/pr/${item.prNumber}">#${item.prNumber} ${escapeHtml(item.title)}</a></h3>
-              <div class="row-between" style="margin-top:10px">
+    <section class="panel" style="margin-top:24px">
+      <p class="eyebrow">Activity timeline</p>
+      <div class="card-stack">
+        ${profile.activeAllocations.map(item => `
+          <article class="profile-card">
+            <div class="row-between">
+              <div>
+                <span class="tag good">Active</span>
+                <h3 style="margin-top:6px"><a href="#/pr/${item.prNumber}">#${item.prNumber} ${escapeHtml(item.title)}</a></h3>
                 <span class="small-text">First entered at clip ${item.firstPosition}</span>
-                <strong>${item.clips} live clips</strong>
               </div>
-            </article>
-          `).join('') || '<div class="empty-state">No open positions right now.</div>'}
-        </div>
-      </section>
-      <section class="panel">
-        <p class="eyebrow">Full vote history</p>
-        <div class="ledger-list">
-          ${profile.history.map(item => `
+              <div style="text-align:right">
+                <strong>${item.clips}</strong>
+                <div class="small-text">live clips</div>
+              </div>
+            </div>
+          </article>
+        `).join('')}
+        ${profile.history.map(item => `
             <div class="ledger-item row-between">
               <div>
                 <strong>${escapeHtml(item.eventType.replace(/_/g, ' '))}</strong>
@@ -1308,14 +1404,15 @@ function renderProfilePage(profile) {
               </div>
             </div>
           `).join('') || '<div class="empty-state">No public history yet.</div>'}
-        </div>
-      </section>
-    </div>
+      </div>
+    </section>
   `;
 }
 
 function renderDetailPage(pr, comments) {
   const page = document.getElementById('detailPage');
+  const bodyPreview = (pr.body || '').slice(0, 500);
+  const hasMoreBody = (pr.body || '').length > 500;
   page.innerHTML = `
     <div class="detail-columns">
       <section class="panel">
@@ -1323,9 +1420,12 @@ function renderDetailPage(pr, comments) {
           ${badgeMarkup('#' + pr.number)}
           ${badgeMarkup(pr.state, pr.state === 'merged' ? 'good' : pr.state === 'closed' ? 'bad' : '')}
           ${badgeMarkup(phaseLabel(pr.phase), pr.phase === 'discovery' ? 'good' : pr.phase === 'momentum' ? 'warn' : 'dark')}
+          ${badgeMarkup('Score ' + pr.compositeScore, scoreTone(pr.compositeScore))}
+          ${badgeMarkup(pr.nextClipBonusPct + '% bonus', 'warn')}
         </div>
         <h1 class="detail-title" style="font-size:clamp(34px, 5vw, 60px); margin:0 0 12px">${escapeHtml(pr.title)}</h1>
-        <p class="section-subtitle">${escapeHtml(pr.body || pr.excerpt || 'No description provided.')}</p>
+        <div class="small-text" style="margin-bottom:16px">by ${escapeHtml(pr.author)} · ${timeAgo(pr.lastActivity)} · <a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" rel="noreferrer">View on GitHub</a></div>
+        ${bodyPreview ? `<p class="section-subtitle" style="white-space:pre-line">${escapeHtml(bodyPreview)}${hasMoreBody ? '...' : ''}</p>` : ''}
         ${progressMarkup(pr)}
         <div class="metric-grid">
           <div class="metric"><strong>${pr.totalClips}</strong><div class="metric-label">clips on this PR</div></div>
@@ -1334,7 +1434,7 @@ function renderDetailPage(pr, comments) {
         </div>
         <div class="detail-block">
           <h3>Allocate clips</h3>
-          <p class="small-text">Set an absolute position. If you trim later, the newest lots unwind first, which keeps your earliest signal intact.</p>
+          <p class="small-text">Set an absolute position. If you trim later, the newest lots unwind first.</p>
           ${cardActions(pr)}
         </div>
         <div class="detail-block" style="margin-top:14px">
@@ -1360,23 +1460,25 @@ function renderDetailPage(pr, comments) {
       </section>
 
       <section class="panel">
-        <div class="detail-block">
-          <h3>Signals</h3>
-          <div class="metric-row"><span class="metric-label">Composite score</span><strong>${pr.compositeScore}</strong></div>
-          <div class="metric-row"><span class="metric-label">Greptile</span><strong>${pr.greptileScore == null ? '-' : pr.greptileScore + '/5'}</strong></div>
-          <div class="metric-row"><span class="metric-label">CI</span><strong>${escapeHtml(pr.ciStatus)}</strong></div>
-          <div class="metric-row"><span class="metric-label">Conflicts</span><strong>${pr.hasConflicts ? 'Yes' : 'No'}</strong></div>
-          <div class="metric-row"><span class="metric-label">LOC</span><strong>+${pr.additions} / -${pr.deletions}</strong></div>
-          <div class="metric-row"><span class="metric-label">Comments</span><strong>${pr.humanComments}</strong></div>
-        </div>
-        <div class="detail-block" style="margin-top:14px">
-          <h3>Checks</h3>
+        <details open>
+          <summary style="cursor:pointer;font-weight:600;margin-bottom:12px">Signals</summary>
+          <div class="detail-block" style="margin-top:0;padding-top:0;border-top:0">
+            <div class="metric-row"><span class="metric-label">Composite score</span><strong>${pr.compositeScore}</strong></div>
+            <div class="metric-row"><span class="metric-label">Greptile</span><strong>${pr.greptileScore == null ? '-' : pr.greptileScore + '/5'}</strong></div>
+            <div class="metric-row"><span class="metric-label">CI</span><strong>${escapeHtml(pr.ciStatus)}</strong></div>
+            <div class="metric-row"><span class="metric-label">Conflicts</span><strong>${pr.hasConflicts ? 'Yes' : 'No'}</strong></div>
+            <div class="metric-row"><span class="metric-label">LOC</span><strong>+${pr.additions} / -${pr.deletions}</strong></div>
+            <div class="metric-row"><span class="metric-label">Comments</span><strong>${pr.humanComments}</strong></div>
+          </div>
+        </details>
+        <details>
+          <summary style="cursor:pointer;font-weight:600;margin-bottom:12px">Checks (${(pr.checks || []).length})</summary>
           <div class="card-stack">
             ${(pr.checks || []).map(check => `<div class="row-between"><span>${escapeHtml(check.name)}</span><span class="tag ${ciTone(check.conclusion === 'success' ? 'passing' : check.status === 'completed' ? 'failing' : 'pending')}">${escapeHtml(check.conclusion || check.status)}</span></div>`).join('') || '<div class="small-text">No checks available.</div>'}
           </div>
-        </div>
-        <div class="detail-block" style="margin-top:14px">
-          <h3>Comments</h3>
+        </details>
+        <details>
+          <summary style="cursor:pointer;font-weight:600;margin-bottom:12px">Comments (${comments.length})</summary>
           <div class="card-stack">
             ${comments.slice(0, 8).map(comment => `
               <div>
@@ -1385,7 +1487,7 @@ function renderDetailPage(pr, comments) {
               </div>
             `).join('') || '<div class="small-text">No comments synced.</div>'}
           </div>
-        </div>
+        </details>
       </section>
     </div>
   `;
@@ -1432,6 +1534,12 @@ function openAuthModal() {
 
 function closeAuthModal() {
   document.getElementById('authModal').classList.remove('open');
+}
+
+function dismissOnboarding() {
+  localStorage.setItem('clips_onboarding_dismissed', '1');
+  const el = document.getElementById('onboardingBanner');
+  if (el) el.remove();
 }
 
 async function runSearch() {
@@ -1537,12 +1645,35 @@ window.addEventListener('hashchange', () => {
   rerenderCurrentRoute().catch((err) => showBanner(err.message, 'error'));
 });
 
+function showFullError(message) {
+  const main = document.querySelector('main');
+  main.innerHTML = `
+    <div class="full-error">
+      <h2>Something went wrong</h2>
+      <p>${escapeHtml(message)}</p>
+      <button class="primary-btn" onclick="location.reload()">Retry</button>
+    </div>
+  `;
+}
+
+function showLoadingSkeletons() {
+  const main = document.querySelector('main');
+  const activePage = document.querySelector('.page.active') || document.getElementById('discoverPage');
+  activePage.classList.add('active');
+  activePage.innerHTML = `
+    <div class="skeleton skeleton-block" style="height:180px"></div>
+    <div class="skeleton skeleton-block"></div>
+    <div class="skeleton skeleton-block"></div>
+  `;
+}
+
 (async function init() {
+  showLoadingSkeletons();
   try {
     await loadCore();
     await rerenderCurrentRoute();
   } catch (err) {
-    showBanner(err.message, 'error');
+    showFullError(err.message || 'Failed to load. The API may be unavailable.');
   }
 })();
 </script>
