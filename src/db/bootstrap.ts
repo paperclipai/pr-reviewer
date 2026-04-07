@@ -179,8 +179,6 @@ CREATE TABLE IF NOT EXISTS pr_comments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_comments_pr ON pr_comments(pr_number);
-CREATE INDEX IF NOT EXISTS idx_pr_author_handle ON pull_requests(author_handle);
-CREATE INDEX IF NOT EXISTS idx_comments_author_handle ON pr_comments(author_handle);
 
 CREATE VIRTUAL TABLE IF NOT EXISTS pr_comments_fts USING fts5(
   body,
@@ -214,8 +212,6 @@ CREATE TABLE IF NOT EXISTS github_users (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
-
-CREATE INDEX IF NOT EXISTS idx_github_users_pr_count ON github_users(pr_count DESC, comment_count DESC);
 
 CREATE TABLE IF NOT EXISTS sync_state (
   key TEXT PRIMARY KEY,
