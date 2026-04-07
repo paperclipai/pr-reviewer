@@ -7,9 +7,29 @@ import {
   MAX_SCORE, TEST_FILE_SQL, THINKING_PATH_SQL, ISSUE_LINK_SQL,
   type AuthorStats,
 } from '../scoring';
-import { githubAuthorProfilePath, normalizeGitHubHandle } from '../github/users';
+import {
+  computeMergeRate,
+  computeMergeScore,
+  githubAuthorProfilePath,
+  mapGitHubUserSummary,
+  normalizeGitHubHandle,
+  parseGitHubLeaderboardSort,
+  sortGitHubUserSummaries,
+} from '../github/users';
 
 export type { DbClient };
+
+const GITHUB_USER_SELECT = `
+  SELECT
+    handle,
+    display_handle,
+    pr_count,
+    open_pr_count,
+    merged_pr_count,
+    closed_unmerged_pr_count,
+    comment_count
+  FROM github_users
+`;
 
 // --- Row-to-candidate mapping (DB shape knowledge stays here) ---
 
@@ -545,28 +565,18 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
   // List unique authors
   api.get('/authors', async (c) => {
     const db = await getDb();
-    const rows = await db.all<any>(`
-      SELECT
-        handle,
-        display_handle,
-        pr_count,
-        open_pr_count,
-        merged_pr_count,
-        closed_unmerged_pr_count,
-        comment_count
-      FROM github_users
-      ORDER BY pr_count DESC, comment_count DESC, handle ASC
-    `);
-    return c.json(rows.map((row) => ({
-      author: row.display_handle,
-      handle: row.handle,
-      cnt: Number(row.pr_count ?? 0),
-      openPrCount: Number(row.open_pr_count ?? 0),
-      mergedPrCount: Number(row.merged_pr_count ?? 0),
-      closedUnmergedPrCount: Number(row.closed_unmerged_pr_count ?? 0),
-      commentCount: Number(row.comment_count ?? 0),
-      profileUrl: githubAuthorProfilePath(row.handle),
-    })));
+    const rows = await db.all<any>(`${GITHUB_USER_SELECT} ORDER BY pr_count DESC, comment_count DESC, handle ASC`);
+    return c.json(sortGitHubUserSummaries(rows.map(mapGitHubUserSummary), 'totalPRs'));
+  });
+
+  api.get('/leaderboard', async (c) => {
+    const db = await getDb();
+    const sort = parseGitHubLeaderboardSort(c.req.query('sort'));
+    const rows = await db.all<any>(GITHUB_USER_SELECT);
+    return c.json({
+      sort,
+      users: sortGitHubUserSummaries(rows.map(mapGitHubUserSummary), sort),
+    });
   });
 
   api.get('/github-users/:handle', async (c) => {
@@ -622,6 +632,8 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         mergedPRs: Number(user.merged_pr_count ?? 0),
         closedUnmergedPRs: Number(user.closed_unmerged_pr_count ?? 0),
         comments: Number(user.comment_count ?? 0),
+        mergeRate: computeMergeRate(Number(user.merged_pr_count ?? 0), Number(user.pr_count ?? 0)),
+        mergeScore: computeMergeScore(Number(user.merged_pr_count ?? 0), Number(user.pr_count ?? 0)),
       },
       recentPRs: recentPRs.map((row) => ({
         number: row.number,

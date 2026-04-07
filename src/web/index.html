@@ -129,6 +129,22 @@
   .search-match { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin-bottom: 6px; font-size: 13px; }
   .search-match .match-meta { color: var(--text-muted); font-size: 12px; margin-bottom: 4px; }
   .search-match .match-body { white-space: pre-wrap; max-height: 120px; overflow-y: auto; color: var(--text); }
+
+  .leaderboard-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 16px; }
+  .summary-card { background: linear-gradient(135deg, rgba(88,166,255,0.12), rgba(22,27,34,0.95)); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .summary-card h3 { font-size: 12px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.08em; margin-bottom: 10px; }
+  .summary-card .summary-name { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .summary-card .summary-value { font-size: 24px; font-weight: 700; }
+  .summary-card .summary-meta { color: var(--text-muted); font-size: 13px; }
+  .leaderboard-rank { font-variant-numeric: tabular-nums; color: var(--text-muted); width: 52px; }
+  .leaderboard-user { min-width: 180px; }
+  .metric-strong { font-variant-numeric: tabular-nums; font-weight: 700; }
+
+  @media (max-width: 900px) {
+    .header { flex-wrap: wrap; gap: 12px; }
+    .detail-grid { grid-template-columns: 1fr; }
+    .container { padding: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -137,6 +153,7 @@
   <h1><a href="#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
   <div class="nav">
     <a href="#/" id="navList">PRs</a>
+    <a href="/leaderboard" id="navLeaderboard">Leaderboard</a>
     <a href="#/search" id="navSearch">Search</a>
   </div>
   <div class="stats" id="stats"></div>
@@ -221,6 +238,38 @@
     <div id="searchResults"></div>
   </div>
 
+  <div class="page" id="leaderboardPage">
+    <div class="filters">
+      <label>Sort by
+        <select id="leaderboardSort">
+          <option value="mergeScore" selected>MergeScore</option>
+          <option value="totalPRs">Total PRs</option>
+          <option value="openPRs">Open PRs</option>
+          <option value="mergedPRs">Merged PRs</option>
+          <option value="closedUnmergedPRs">Closed unmerged</option>
+          <option value="comments">Comments</option>
+        </select>
+      </label>
+    </div>
+    <div id="leaderboardSummary" class="leaderboard-summary"></div>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>User</th>
+          <th>MergeScore</th>
+          <th>Merge rate</th>
+          <th>Total PRs</th>
+          <th>Open PRs</th>
+          <th>Merged PRs</th>
+          <th>Closed unmerged</th>
+          <th>Comments</th>
+        </tr>
+      </thead>
+      <tbody id="leaderboardTable"></tbody>
+    </table>
+  </div>
+
   <div class="page" id="authorPage">
     <button class="back-btn" onclick="navigate('/')">&larr; Back to list</button>
     <div id="authorContent"></div>
@@ -231,6 +280,8 @@
 let allPRs = [];
 let sortKey = 'compositeScore';
 let sortDir = -1;
+let leaderboardSort = 'mergeScore';
+let leaderboardUsers = [];
 const PAGE_SIZE = 25;
 let currentPage = 1;
 
@@ -239,21 +290,33 @@ function navigate(path) {
   window.location.hash = path;
 }
 
-function parseHash() {
-  const hash = window.location.hash.slice(1) || '/';
-  if (hash.startsWith('/pr/')) {
-    const num = parseInt(hash.slice(4));
+function parseRouteValue(path, query) {
+  if (path.startsWith('/pr/')) {
+    const num = parseInt(path.slice(4));
     return isNaN(num) ? { page: 'list' } : { page: 'detail', pr: num };
   }
-  if (hash.startsWith('/authors/')) {
-    return { page: 'author', handle: decodeURIComponent(hash.slice('/authors/'.length)) };
+  if (path.startsWith('/authors/')) {
+    return { page: 'author', handle: decodeURIComponent(path.slice('/authors/'.length)) };
   }
-  if (hash.startsWith('/search')) {
-    const qIdx = hash.indexOf('?');
-    const params = qIdx >= 0 ? new URLSearchParams(hash.slice(qIdx + 1)) : null;
+  if (path === '/leaderboard') {
+    return { page: 'leaderboard' };
+  }
+  if (path.startsWith('/search')) {
+    const params = query ? new URLSearchParams(query) : null;
     return { page: 'search', q: params?.get('q') || '' };
   }
   return { page: 'list' };
+}
+
+function parseHash() {
+  const hash = window.location.hash.slice(1);
+  if (hash) {
+    const qIdx = hash.indexOf('?');
+    const path = qIdx >= 0 ? hash.slice(0, qIdx) : hash;
+    const query = qIdx >= 0 ? hash.slice(qIdx + 1) : '';
+    return parseRouteValue(path || '/', query);
+  }
+  return parseRouteValue(window.location.pathname || '/', window.location.search.slice(1));
 }
 
 function showPage(name) {
@@ -261,6 +324,7 @@ function showPage(name) {
   document.getElementById(name + 'Page').classList.add('active');
   document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
   if (name === 'list' || name === 'detail' || name === 'author') document.getElementById('navList').classList.add('active');
+  if (name === 'leaderboard') document.getElementById('navLeaderboard').classList.add('active');
   if (name === 'search') document.getElementById('navSearch').classList.add('active');
 }
 
@@ -272,6 +336,10 @@ async function handleRoute() {
   } else if (route.page === 'author') {
     showPage('author');
     await showAuthor(route.handle);
+  } else if (route.page === 'leaderboard') {
+    showPage('leaderboard');
+    document.getElementById('leaderboardSort').value = leaderboardSort;
+    await loadLeaderboard();
   } else if (route.page === 'search') {
     showPage('search');
     if (route.q) {
@@ -478,6 +546,11 @@ function timeAgo(dateStr) {
   return Math.floor(months / 12) + 'y ago';
 }
 
+function formatPercent(value) {
+  if (!Number.isFinite(value)) return '0%';
+  return `${Number(value).toFixed(value % 1 === 0 ? 0 : 1)}%`;
+}
+
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
@@ -657,7 +730,7 @@ async function showAuthor(handle) {
   root.innerHTML = `
     <div class="detail-header">
       <h2>${esc(author.displayHandle)}</h2>
-      <div class="meta"><a href="${esc(author.githubUrl)}" target="_blank" rel="noreferrer">@${esc(author.displayHandle)}</a></div>
+      <div class="meta"><a href="${esc(author.githubUrl)}" target="_blank" rel="noreferrer">@${esc(author.displayHandle)}</a> · MergeScore <span class="metric-strong">${formatPercent(author.stats.mergeScore)}</span></div>
     </div>
 
     <div class="detail-grid">
@@ -668,6 +741,8 @@ async function showAuthor(handle) {
         <div class="prop"><span class="prop-label">Merged</span><span>${author.stats.mergedPRs}</span></div>
         <div class="prop"><span class="prop-label">Closed unmerged</span><span>${author.stats.closedUnmergedPRs}</span></div>
         <div class="prop"><span class="prop-label">Comments</span><span>${author.stats.comments}</span></div>
+        <div class="prop"><span class="prop-label">Merge rate</span><span>${formatPercent(author.stats.mergeRate)}</span></div>
+        <div class="prop"><span class="prop-label">MergeScore</span><span class="metric-strong">${formatPercent(author.stats.mergeScore)}</span></div>
       </div>
 
       <div class="card">
@@ -696,6 +771,73 @@ async function showAuthor(handle) {
       </div>
     </div>
   `;
+}
+
+async function loadLeaderboard() {
+  const tbody = document.getElementById('leaderboardTable');
+  const summary = document.getElementById('leaderboardSummary');
+  tbody.innerHTML = '<tr><td colspan="9" class="loading">Loading...</td></tr>';
+  summary.innerHTML = '';
+
+  const res = await fetch(`/api/leaderboard?sort=${encodeURIComponent(leaderboardSort)}`);
+  if (!res.ok) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">Leaderboard unavailable</td></tr>';
+    return;
+  }
+
+  const data = await res.json();
+  leaderboardUsers = data.users || [];
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  const tbody = document.getElementById('leaderboardTable');
+  const summary = document.getElementById('leaderboardSummary');
+
+  if (!leaderboardUsers.length) {
+    summary.innerHTML = '';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty">No synced authors yet</td></tr>';
+    return;
+  }
+
+  const topMergeScore = leaderboardUsers[0];
+  const topMerged = [...leaderboardUsers].sort((a, b) => b.mergedPRs - a.mergedPRs || b.mergeScore - a.mergeScore)[0];
+  const topComments = [...leaderboardUsers].sort((a, b) => b.commentCount - a.commentCount || b.totalPRs - a.totalPRs)[0];
+
+  summary.innerHTML = `
+    <div class="summary-card">
+      <h3>Top MergeScore</h3>
+      <div class="summary-name">${authorLink(topMergeScore.handle, topMergeScore.author)}</div>
+      <div class="summary-value">${formatPercent(topMergeScore.mergeScore)}</div>
+      <div class="summary-meta">${topMergeScore.mergedPRs} merged of ${topMergeScore.totalPRs} total</div>
+    </div>
+    <div class="summary-card">
+      <h3>Most Merged PRs</h3>
+      <div class="summary-name">${authorLink(topMerged.handle, topMerged.author)}</div>
+      <div class="summary-value">${topMerged.mergedPRs}</div>
+      <div class="summary-meta">${formatPercent(topMerged.mergeRate)} raw merge rate</div>
+    </div>
+    <div class="summary-card">
+      <h3>Most Comments</h3>
+      <div class="summary-name">${authorLink(topComments.handle, topComments.author)}</div>
+      <div class="summary-value">${topComments.commentCount}</div>
+      <div class="summary-meta">${topComments.totalPRs} authored PRs tracked</div>
+    </div>
+  `;
+
+  tbody.innerHTML = leaderboardUsers.map((user, index) => `
+    <tr>
+      <td class="leaderboard-rank">#${index + 1}</td>
+      <td class="leaderboard-user">${authorLink(user.handle, user.author)}</td>
+      <td class="metric-strong ${user.mergeScore >= 40 ? 'score-high' : user.mergeScore >= 20 ? 'score-mid' : 'score-low'}">${formatPercent(user.mergeScore)}</td>
+      <td>${formatPercent(user.mergeRate)}</td>
+      <td>${user.totalPRs}</td>
+      <td>${user.openPRs}</td>
+      <td>${user.mergedPRs}</td>
+      <td>${user.closedUnmergedPRs}</td>
+      <td>${user.commentCount}</td>
+    </tr>
+  `).join('');
 }
 
 // --- Search ---
@@ -762,10 +904,14 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
 ['filterState', 'filterMinScore', 'filterCI', 'filterNoConflicts'].forEach(id => {
   document.getElementById(id).addEventListener('change', loadPRs);
 });
+document.getElementById('leaderboardSort').addEventListener('change', (e) => {
+  leaderboardSort = e.target.value;
+  loadLeaderboard();
+});
 
 // --- Init ---
 loadStats();
-loadPRs().then(() => handleRoute());
+handleRoute();
 </script>
 </body>
 </html>
