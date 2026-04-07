@@ -220,6 +220,11 @@
     </div>
     <div id="searchResults"></div>
   </div>
+
+  <div class="page" id="authorPage">
+    <button class="back-btn" onclick="navigate('/')">&larr; Back to list</button>
+    <div id="authorContent"></div>
+  </div>
 </div>
 
 <script>
@@ -240,6 +245,9 @@ function parseHash() {
     const num = parseInt(hash.slice(4));
     return isNaN(num) ? { page: 'list' } : { page: 'detail', pr: num };
   }
+  if (hash.startsWith('/authors/')) {
+    return { page: 'author', handle: decodeURIComponent(hash.slice('/authors/'.length)) };
+  }
   if (hash.startsWith('/search')) {
     const qIdx = hash.indexOf('?');
     const params = qIdx >= 0 ? new URLSearchParams(hash.slice(qIdx + 1)) : null;
@@ -252,7 +260,7 @@ function showPage(name) {
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.getElementById(name + 'Page').classList.add('active');
   document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
-  if (name === 'list' || name === 'detail') document.getElementById('navList').classList.add('active');
+  if (name === 'list' || name === 'detail' || name === 'author') document.getElementById('navList').classList.add('active');
   if (name === 'search') document.getElementById('navSearch').classList.add('active');
 }
 
@@ -261,6 +269,9 @@ async function handleRoute() {
   if (route.page === 'detail') {
     showPage('detail');
     await showDetail(route.pr);
+  } else if (route.page === 'author') {
+    showPage('author');
+    await showAuthor(route.handle);
   } else if (route.page === 'search') {
     showPage('search');
     if (route.q) {
@@ -371,7 +382,7 @@ function renderTable() {
     <tr class="clickable" onclick="navigate('/pr/${pr.number}')">
       <td><a href="https://github.com/paperclipai/paperclip/pull/${pr.number}" target="_blank" onclick="event.stopPropagation()">#${pr.number}</a></td>
       <td class="title-cell">${esc(pr.title)}</td>
-      <td>${esc(pr.author)}</td>
+      <td>${authorLink(pr.authorHandle, pr.author)}</td>
       <td>${pr.greptileScore !== null ? `<span class="score-bar ${pr.greptileScore >= 4 ? 'score-high' : pr.greptileScore >= 3 ? 'score-mid' : 'score-low'}">${pr.greptileScore}/5</span>` : '<span class="badge badge-gray">\u2014</span>'}</td>
       <td>${ciDot(pr.ciStatus)}</td>
       <td style="white-space:nowrap;font-size:13px"><span style="color:#3fb950">+${pr.additions || 0}</span> <span style="color:#f85149">-${pr.deletions || 0}</span></td>
@@ -419,6 +430,19 @@ function ciDot(status) {
   const map = { passing: 'ci-dot-green', failing: 'ci-dot-red', pending: 'ci-dot-yellow', unknown: 'ci-dot-gray' };
   const titles = { passing: 'Passing', failing: 'Failing', pending: 'Pending', unknown: 'Unknown' };
   return `<span class="ci-dot ${map[status] || 'ci-dot-gray'}" title="${titles[status] || 'Unknown'}"></span>`;
+}
+
+function authorHref(handle) {
+  const normalized = String(handle || '').trim().toLowerCase();
+  if (!normalized) return null;
+  return '#/authors/' + encodeURIComponent(normalized);
+}
+
+function authorLink(handle, label) {
+  const href = authorHref(handle || label);
+  const text = esc(label || handle || 'unknown');
+  if (!href) return text;
+  return `<a href="${href}" onclick="event.stopPropagation()">${text}</a>`;
 }
 
 function labelColor(hex) {
@@ -489,7 +513,7 @@ async function showDetail(number) {
   document.getElementById('detailContent').innerHTML = `
     <div class="detail-header">
       <h2><a href="https://github.com/paperclipai/paperclip/pull/${d.number}" target="_blank">#${d.number}</a> ${esc(d.title)}</h2>
-      <div class="meta">by ${esc(d.author)} · created ${new Date(d.createdAt).toLocaleDateString()} · updated ${timeAgo(d.lastActivity)}</div>
+      <div class="meta">by ${authorLink(d.authorHandle, d.author)} · created ${new Date(d.createdAt).toLocaleDateString()} · updated ${timeAgo(d.lastActivity)}</div>
     </div>
 
     <div class="detail-grid">
@@ -538,7 +562,7 @@ async function showDetail(number) {
       </div>
 
       ${d.contributor ? `<div class="card card-full">
-        <h3>Contributor: ${esc(d.author)}</h3>
+        <h3>Contributor: ${authorLink(d.authorHandle, d.author)}</h3>
         <div style="display:flex;gap:24px;align-items:flex-start">
           <div style="flex:0 0 auto;text-align:center;padding:8px 16px">
             <div class="score-bar ${d.contributor.score >= 70 ? 'score-high' : d.contributor.score >= 40 ? 'score-mid' : 'score-low'}" style="font-size:28px">${d.contributor.score}</div>
@@ -592,7 +616,7 @@ async function showDetail(number) {
                 return `<tr style="cursor:pointer" onclick="navigate('/pr/${s.number}')">
                   <td><a href="#/pr/${s.number}" onclick="event.stopPropagation()">#${s.number}</a> <a href="https://github.com/paperclipai/paperclip/pull/${s.number}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-dim)">[gh]</a></td>
                   <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</td>
-                  <td>${esc(s.author)}</td>
+                  <td>${authorLink(s.authorHandle || s.author, s.author)}</td>
                   <td><span class="score-bar ${s.score >= 100 ? 'score-high' : s.score >= 65 ? 'score-mid' : 'score-low'}">${s.score}</span></td>
                   <td><span class="sim-bar" style="width:${Math.round(s.overallScore * 60)}px"></span> ${Math.round(s.overallScore * 100)}%</td>
                   <td>${fileLabel}</td>
@@ -611,10 +635,65 @@ async function showDetail(number) {
 
       ${comments && comments.length ? `<div class="card card-full"><h3>Comments (${comments.length})</h3>${comments.map(cm => `
         <div class="review-block">
-          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">${esc(cm.author)} · ${new Date(cm.created_at).toLocaleDateString()}</div>
+          <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">${authorLink(cm.authorHandle, cm.author)} · ${new Date(cm.created_at).toLocaleDateString()}</div>
           <div class="description" style="max-height:200px">${esc(cm.body)}</div>
         </div>
       `).join('')}</div>` : ''}
+    </div>
+  `;
+}
+
+async function showAuthor(handle) {
+  const root = document.getElementById('authorContent');
+  root.innerHTML = '<div class="loading">Loading...</div>';
+
+  const res = await fetch(`/api/github-users/${encodeURIComponent(handle)}`);
+  if (!res.ok) {
+    root.innerHTML = '<div class="empty">Author not found</div>';
+    return;
+  }
+
+  const author = await res.json();
+  root.innerHTML = `
+    <div class="detail-header">
+      <h2>${esc(author.displayHandle)}</h2>
+      <div class="meta"><a href="${esc(author.githubUrl)}" target="_blank" rel="noreferrer">@${esc(author.displayHandle)}</a></div>
+    </div>
+
+    <div class="detail-grid">
+      <div class="card">
+        <h3>Stats</h3>
+        <div class="prop"><span class="prop-label">Total PRs</span><span>${author.stats.totalPRs}</span></div>
+        <div class="prop"><span class="prop-label">Open</span><span>${author.stats.openPRs}</span></div>
+        <div class="prop"><span class="prop-label">Merged</span><span>${author.stats.mergedPRs}</span></div>
+        <div class="prop"><span class="prop-label">Closed unmerged</span><span>${author.stats.closedUnmergedPRs}</span></div>
+        <div class="prop"><span class="prop-label">Comments</span><span>${author.stats.comments}</span></div>
+      </div>
+
+      <div class="card">
+        <h3>Latest Comments</h3>
+        ${author.recentComments && author.recentComments.length ? author.recentComments.map(cm => `
+          <div class="review-block">
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="#/pr/${cm.prNumber}">#${cm.prNumber}</a> ${esc(cm.prTitle)} · ${new Date(cm.createdAt).toLocaleDateString()}</div>
+            <div class="description" style="max-height:120px">${esc(cm.excerpt || '')}</div>
+          </div>
+        `).join('') : '<div style="color:var(--text-muted)">No synced comments yet</div>'}
+      </div>
+
+      <div class="card card-full">
+        <h3>Recent PRs</h3>
+        ${author.recentPRs && author.recentPRs.length ? author.recentPRs.map(pr => `
+          <div class="review-block">
+            <div class="prop" style="padding-top:0">
+              <span><a href="#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></span>
+              <span>${pr.state}</span>
+            </div>
+            ${pr.bodyExcerpt ? `<div class="description" style="max-height:120px;margin-top:8px">${esc(pr.bodyExcerpt)}</div>` : ''}
+            ${pr.closureContext ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px"><strong>Closed why:</strong> ${esc(pr.closureContext)}</div>` : ''}
+            ${pr.latestCommentExcerpt ? `<div style="font-size:12px;color:var(--text-muted);margin-top:6px"><strong>Latest comment:</strong> ${esc(pr.latestCommentExcerpt)}${pr.latestCommentAuthor ? ` by ${authorLink(pr.latestCommentAuthorHandle, pr.latestCommentAuthor)}` : ''}</div>` : ''}
+          </div>
+        `).join('') : '<div style="color:var(--text-muted)">No synced PRs yet</div>'}
+      </div>
     </div>
   `;
 }
@@ -649,11 +728,11 @@ async function executeSearch(q) {
     data.prs.map(g => `
       <div class="search-group">
         <div class="search-group-header">
-          <a href="#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)}
+          <a href="#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)} <span style="font-weight:400;color:var(--text-muted)">by ${authorLink(g.authorHandle, g.author)}</span>
         </div>
         ${g.matches.map(m => `
           <div class="search-match">
-            <div class="match-meta">${esc(m.author)} · ${new Date(m.created_at).toLocaleDateString()}</div>
+            <div class="match-meta">${authorLink(m.authorHandle, m.author)} · ${new Date(m.created_at).toLocaleDateString()}</div>
             <div class="match-body">${esc(m.body.length > 500 ? m.body.slice(0, 500) + '...' : m.body)}</div>
           </div>
         `).join('')}

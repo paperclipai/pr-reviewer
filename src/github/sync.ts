@@ -3,6 +3,7 @@ import { getDb } from '../db/client';
 import { BatchStatement } from '../db/types';
 import { parseGreptileScores } from './comments';
 import { CheckRun } from './checks';
+import { normalizeGitHubHandle, rebuildGitHubUsers } from './users';
 import chalk from 'chalk';
 
 export interface SyncOptions {
@@ -121,13 +122,14 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
 
       // --- Batch all DB writes for this PR ---
       const batch: BatchStatement[] = [];
+      const authorHandle = normalizeGitHubHandle(pr.user?.login ?? 'unknown');
 
       // Upsert PR
       batch.push({
-        sql: `INSERT INTO pull_requests (number, title, body, author, head_sha, mergeable, mergeable_state, state, labels_json, additions, deletions, changed_files, created_at, updated_at, fetched_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, datetime('now'))
+        sql: `INSERT INTO pull_requests (number, title, body, author, author_handle, head_sha, mergeable, mergeable_state, state, labels_json, additions, deletions, changed_files, created_at, updated_at, fetched_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, datetime('now'))
         ON CONFLICT(number) DO UPDATE SET
-          title=excluded.title, body=excluded.body, author=excluded.author,
+          title=excluded.title, body=excluded.body, author=excluded.author, author_handle=excluded.author_handle,
           head_sha=excluded.head_sha, mergeable=excluded.mergeable,
           mergeable_state=excluded.mergeable_state, state='open', labels_json=excluded.labels_json,
           additions=excluded.additions, deletions=excluded.deletions, changed_files=excluded.changed_files,
@@ -137,6 +139,7 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
           pr.title,
           pr.body ?? null,
           pr.user?.login ?? 'unknown',
+          authorHandle,
           pr.head.sha,
           mergeable === null ? null : mergeable ? 1 : 0,
           mergeableState,
@@ -153,11 +156,19 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
       for (const comment of comments) {
         if (!comment.body) continue;
         batch.push({
-          sql: `INSERT INTO pr_comments (comment_id, pr_number, author, body, created_at, updated_at)
-          VALUES (?, ?, ?, ?, ?, ?)
+          sql: `INSERT INTO pr_comments (comment_id, pr_number, author, author_handle, body, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(comment_id) DO UPDATE SET
-            body=excluded.body, updated_at=excluded.updated_at`,
-          params: [comment.id, pr.number, comment.user?.login ?? 'unknown', comment.body, comment.created_at, comment.updated_at],
+            author=excluded.author, author_handle=excluded.author_handle, body=excluded.body, updated_at=excluded.updated_at`,
+          params: [
+            comment.id,
+            pr.number,
+            comment.user?.login ?? 'unknown',
+            normalizeGitHubHandle(comment.user?.login ?? 'unknown'),
+            comment.body,
+            comment.created_at,
+            comment.updated_at,
+          ],
         });
         batch.push({
           sql: `INSERT OR REPLACE INTO pr_comments_fts(rowid, body) VALUES (?, ?)`,
@@ -269,12 +280,20 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
       for (const cpr of closedPRs.slice(0, 500)) {
         const state = cpr.merged_at ? 'merged' : 'closed';
         await db.run(`
-          INSERT INTO pull_requests (number, title, body, author, head_sha, state, labels_json, created_at, updated_at, fetched_at)
-          VALUES (?, ?, ?, ?, ?, ?, '[]', ?, ?, datetime('now'))
-          ON CONFLICT(number) DO UPDATE SET state=excluded.state
+          INSERT INTO pull_requests (number, title, body, author, author_handle, head_sha, state, labels_json, created_at, updated_at, fetched_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?, '[]', ?, ?, datetime('now'))
+          ON CONFLICT(number) DO UPDATE SET
+            title=excluded.title,
+            body=excluded.body,
+            author=excluded.author,
+            author_handle=excluded.author_handle,
+            head_sha=excluded.head_sha,
+            state=excluded.state,
+            updated_at=excluded.updated_at,
+            fetched_at=datetime('now')
         `, [
           cpr.number, cpr.title, cpr.body ?? null,
-          cpr.user?.login ?? 'unknown', cpr.head.sha,
+          cpr.user?.login ?? 'unknown', normalizeGitHubHandle(cpr.user?.login ?? 'unknown'), cpr.head.sha,
           state, cpr.created_at, cpr.updated_at,
         ]);
         synced++;
@@ -308,6 +327,7 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
     INSERT INTO sync_state (key, value) VALUES ('last_sync_at', datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value=datetime('now')
   `);
+  await rebuildGitHubUsers(db);
 
   const synced = completed - skipped;
   console.log(chalk.green(`\nSync complete. ${synced} PRs synced, ${skipped} unchanged (skipped).`));

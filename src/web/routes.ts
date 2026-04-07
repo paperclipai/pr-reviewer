@@ -7,20 +7,40 @@ import {
   MAX_SCORE, TEST_FILE_SQL, THINKING_PATH_SQL, ISSUE_LINK_SQL,
   type AuthorStats,
 } from '../scoring';
+import { githubAuthorProfilePath, normalizeGitHubHandle } from '../github/users';
 
 export type { DbClient };
 
 // --- Row-to-candidate mapping (DB shape knowledge stays here) ---
+
+function excerpt(text: string | null | undefined, maxLength: number = 180): string | null {
+  if (!text) return null;
+  const compact = text.replace(/\s+/g, ' ').trim();
+  if (!compact) return null;
+  return compact.length <= maxLength ? compact : `${compact.slice(0, maxLength - 1)}…`;
+}
+
+function buildGitHubAuthor(handle: string | null | undefined, fallback: string | null | undefined) {
+  const authorHandle = normalizeGitHubHandle(handle ?? fallback);
+  return {
+    author: fallback ?? authorHandle,
+    authorHandle,
+    authorProfileUrl: githubAuthorProfilePath(authorHandle),
+  };
+}
 
 function buildCandidate(row: any) {
   const ciStatus = deriveCIStatus(row.total_checks, row.failed_checks, row.pending_checks);
   const hasConflicts = row.mergeable === 0 || row.mergeable_state === 'dirty';
   let labels: any[] = [];
   try { labels = JSON.parse(row.labels_json || '[]'); } catch {}
+  const author = buildGitHubAuthor(row.author_handle, row.author_display_handle ?? row.author);
   return {
     number: row.number,
     title: row.title,
-    author: row.author,
+    author: author.author,
+    authorHandle: author.authorHandle,
+    authorProfileUrl: author.authorProfileUrl,
     state: row.state,
     labels,
     greptileScore: row.greptile_score,
@@ -38,7 +58,10 @@ function buildCandidate(row: any) {
 
 const PR_SELECT = `
   SELECT
-    pr.number, pr.title, pr.author, pr.mergeable, pr.mergeable_state, pr.state, pr.labels_json,
+    pr.number, pr.title, pr.body, pr.author,
+    COALESCE(pr.author_handle, LOWER(pr.author)) as author_handle,
+    COALESCE(gu.display_handle, pr.author) as author_display_handle,
+    pr.mergeable, pr.mergeable_state, pr.state, pr.labels_json,
     pr.additions, pr.deletions, pr.changed_files,
     pr.created_at, pr.updated_at,
     (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
@@ -47,7 +70,8 @@ const PR_SELECT = `
     (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks,
     (SELECT COUNT(*) FROM pr_comments pc WHERE pc.pr_number = pr.number AND pc.author NOT LIKE '%[bot]') as human_comments,
     MAX(pr.updated_at, COALESCE((SELECT MAX(pc.created_at) FROM pr_comments pc WHERE pc.pr_number = pr.number), pr.updated_at)) as last_activity
-  FROM pull_requests pr`;
+  FROM pull_requests pr
+  LEFT JOIN github_users gu ON gu.handle = COALESCE(pr.author_handle, LOWER(pr.author))`;
 
 // --- Similarity helpers ---
 
@@ -129,8 +153,8 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
       params.push(state);
     }
     if (author) {
-      conditions.push('pr.author = ?');
-      params.push(author);
+      conditions.push('COALESCE(pr.author_handle, LOWER(pr.author)) = ?');
+      params.push(normalizeGitHubHandle(author));
     }
 
     const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
@@ -308,10 +332,10 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     const db = await getDb();
 
     const results = await db.all<{
-      comment_id: number; pr_number: number; author: string;
+      comment_id: number; pr_number: number; author: string; author_handle: string;
       body: string; created_at: string; rank: number;
     }>(`
-      SELECT c.comment_id, c.pr_number, c.author, c.body, c.created_at,
+      SELECT c.comment_id, c.pr_number, c.author, COALESCE(c.author_handle, LOWER(c.author)) as author_handle, c.body, c.created_at,
              rank
       FROM pr_comments_fts fts
       JOIN pr_comments c ON c.comment_id = fts.rowid
@@ -322,18 +346,32 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
 
     // Group by PR with metadata
     const prNumbers = [...new Set(results.map(r => r.pr_number))];
-    const byPR = new Map<number, { pr_number: number; title: string; author: string; state: string; labels: any[]; compositeScore: number; matches: any[] }>();
+    const byPR = new Map<number, { pr_number: number; title: string; author: string; authorHandle: string; authorProfileUrl: string | null; state: string; labels: any[]; compositeScore: number; matches: any[] }>();
 
     for (const num of prNumbers) {
       const row = await db.get(`${PR_SELECT} WHERE pr.number = ?`, [num]);
       if (row) {
         const cand = buildCandidate(row);
-        byPR.set(num, { pr_number: cand.number, title: cand.title, author: cand.author, state: cand.state, labels: cand.labels, compositeScore: cand.compositeScore, matches: [] });
+        byPR.set(num, {
+          pr_number: cand.number,
+          title: cand.title,
+          author: cand.author,
+          authorHandle: cand.authorHandle,
+          authorProfileUrl: cand.authorProfileUrl,
+          state: cand.state,
+          labels: cand.labels,
+          compositeScore: cand.compositeScore,
+          matches: [],
+        });
       }
     }
 
     for (const r of results) {
-      byPR.get(r.pr_number)?.matches.push(r);
+      byPR.get(r.pr_number)?.matches.push({
+        ...r,
+        authorHandle: normalizeGitHubHandle(r.author_handle ?? r.author),
+        authorProfileUrl: githubAuthorProfilePath(r.author_handle ?? r.author),
+      });
     }
 
     return c.json({
@@ -348,8 +386,15 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     const prNumber = parseInt(c.req.param('number'));
     if (isNaN(prNumber)) return c.json({ error: 'Invalid PR number' }, 400);
     const db = await getDb();
-    const comments = await db.all('SELECT * FROM pr_comments WHERE pr_number = ? ORDER BY created_at ASC', [prNumber]);
-    return c.json(comments);
+    const comments = await db.all<any>(
+      'SELECT *, COALESCE(author_handle, LOWER(author)) as author_handle FROM pr_comments WHERE pr_number = ? ORDER BY created_at ASC',
+      [prNumber],
+    );
+    return c.json(comments.map((comment) => ({
+      ...comment,
+      authorHandle: normalizeGitHubHandle(comment.author_handle ?? comment.author),
+      authorProfileUrl: githubAuthorProfilePath(comment.author_handle ?? comment.author),
+    })));
   });
 
   // Similar / duplicate PR detection
@@ -363,8 +408,8 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     );
     if (!pr) return c.json({ error: 'PR not found' }, 404);
 
-    const others = await db.all<{ number: number; title: string; body: string | null; author: string; created_at: string; greptile_score: number | null; total_checks: number; failed_checks: number; pending_checks: number; human_comments: number; additions: number | null; deletions: number | null; mergeable: number | null; mergeable_state: string | null }>(
-      `SELECT pr.number, pr.title, pr.body, pr.author, pr.created_at,
+    const others = await db.all<{ number: number; title: string; body: string | null; author: string; author_handle: string | null; created_at: string; greptile_score: number | null; total_checks: number; failed_checks: number; pending_checks: number; human_comments: number; additions: number | null; deletions: number | null; mergeable: number | null; mergeable_state: string | null }>(
+      `SELECT pr.number, pr.title, pr.body, pr.author, COALESCE(pr.author_handle, LOWER(pr.author)) as author_handle, pr.created_at,
         pr.additions, pr.deletions, pr.mergeable, pr.mergeable_state,
         (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
         (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
@@ -402,7 +447,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     const srcBodyBigrams = wordShingles(srcBodyWords, 2);
 
     const simResults: Array<{
-      number: number; title: string; author: string; created_at: string;
+      number: number; title: string; author: string; authorHandle: string; created_at: string;
       score: number; titleSimilarity: number; bodySimilarity: number; fileSimilarity: number;
       overallScore: number; sharedFiles: number;
       potentialCopy: boolean; relationship: string;
@@ -456,6 +501,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         number: other.number,
         title: other.title,
         author: other.author,
+        authorHandle: normalizeGitHubHandle(other.author_handle ?? other.author),
         created_at: other.created_at,
         score: prScore,
         titleSimilarity: Math.round(titleSim * 100) / 100,
@@ -499,8 +545,111 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
   // List unique authors
   api.get('/authors', async (c) => {
     const db = await getDb();
-    const rows = await db.all<{ author: string; cnt: number }>('SELECT author, COUNT(*) as cnt FROM pull_requests GROUP BY author ORDER BY cnt DESC');
-    return c.json(rows);
+    const rows = await db.all<any>(`
+      SELECT
+        handle,
+        display_handle,
+        pr_count,
+        open_pr_count,
+        merged_pr_count,
+        closed_unmerged_pr_count,
+        comment_count
+      FROM github_users
+      ORDER BY pr_count DESC, comment_count DESC, handle ASC
+    `);
+    return c.json(rows.map((row) => ({
+      author: row.display_handle,
+      handle: row.handle,
+      cnt: Number(row.pr_count ?? 0),
+      openPrCount: Number(row.open_pr_count ?? 0),
+      mergedPrCount: Number(row.merged_pr_count ?? 0),
+      closedUnmergedPrCount: Number(row.closed_unmerged_pr_count ?? 0),
+      commentCount: Number(row.comment_count ?? 0),
+      profileUrl: githubAuthorProfilePath(row.handle),
+    })));
+  });
+
+  api.get('/github-users/:handle', async (c) => {
+    const db = await getDb();
+    const handle = normalizeGitHubHandle(c.req.param('handle'));
+    if (!handle) return c.json({ error: 'User not found' }, 404);
+
+    const user = await db.get<any>('SELECT * FROM github_users WHERE handle = ?', [handle]);
+    if (!user) return c.json({ error: 'User not found' }, 404);
+
+    const recentPRs = await db.all<any>(`
+      SELECT
+        pr.number,
+        pr.title,
+        pr.body,
+        pr.state,
+        pr.created_at,
+        pr.updated_at,
+        COALESCE((SELECT COUNT(*) FROM pr_comments pc WHERE pc.pr_number = pr.number), 0) as comment_count,
+        (SELECT pc.author FROM pr_comments pc WHERE pc.pr_number = pr.number ORDER BY pc.created_at DESC, pc.comment_id DESC LIMIT 1) as latest_comment_author,
+        (SELECT COALESCE(pc.author_handle, LOWER(pc.author)) FROM pr_comments pc WHERE pc.pr_number = pr.number ORDER BY pc.created_at DESC, pc.comment_id DESC LIMIT 1) as latest_comment_author_handle,
+        (SELECT pc.body FROM pr_comments pc WHERE pc.pr_number = pr.number ORDER BY pc.created_at DESC, pc.comment_id DESC LIMIT 1) as latest_comment_body
+      FROM pull_requests pr
+      WHERE COALESCE(pr.author_handle, LOWER(pr.author)) = ?
+      ORDER BY pr.updated_at DESC, pr.number DESC
+      LIMIT 40
+    `, [handle]);
+
+    const recentComments = await db.all<any>(`
+      SELECT
+        pc.comment_id,
+        pc.pr_number,
+        pc.author,
+        COALESCE(pc.author_handle, LOWER(pc.author)) as author_handle,
+        pc.body,
+        pc.created_at,
+        pc.updated_at,
+        pr.title as pr_title
+      FROM pr_comments pc
+      JOIN pull_requests pr ON pr.number = pc.pr_number
+      WHERE COALESCE(pc.author_handle, LOWER(pc.author)) = ?
+      ORDER BY pc.created_at DESC, pc.comment_id DESC
+      LIMIT 8
+    `, [handle]);
+
+    return c.json({
+      handle: user.handle,
+      displayHandle: user.display_handle,
+      githubUrl: `https://github.com/${encodeURIComponent(user.display_handle)}`,
+      stats: {
+        totalPRs: Number(user.pr_count ?? 0),
+        openPRs: Number(user.open_pr_count ?? 0),
+        mergedPRs: Number(user.merged_pr_count ?? 0),
+        closedUnmergedPRs: Number(user.closed_unmerged_pr_count ?? 0),
+        comments: Number(user.comment_count ?? 0),
+      },
+      recentPRs: recentPRs.map((row) => ({
+        number: row.number,
+        title: row.title,
+        state: row.state,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        bodyExcerpt: excerpt(row.body, 220),
+        commentCount: Number(row.comment_count ?? 0),
+        latestCommentAuthor: row.latest_comment_author ?? null,
+        latestCommentAuthorHandle: normalizeGitHubHandle(row.latest_comment_author_handle ?? row.latest_comment_author),
+        latestCommentAuthorProfileUrl: githubAuthorProfilePath(row.latest_comment_author_handle ?? row.latest_comment_author),
+        latestCommentExcerpt: excerpt(row.latest_comment_body, 220),
+        closureContext: row.state === 'open' ? null : excerpt(row.latest_comment_body || row.body, 220),
+      })),
+      recentComments: recentComments.map((row) => ({
+        commentId: row.comment_id,
+        prNumber: row.pr_number,
+        prTitle: row.pr_title,
+        author: row.author,
+        authorHandle: normalizeGitHubHandle(row.author_handle ?? row.author),
+        authorProfileUrl: githubAuthorProfilePath(row.author_handle ?? row.author),
+        excerpt: excerpt(row.body, 220),
+        body: row.body,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      })),
+    });
   });
 
   // Scoring formula explanation
