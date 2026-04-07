@@ -150,11 +150,11 @@
 <body>
 
 <div class="header">
-  <h1><a href="#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
+  <h1><a href="/#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
   <div class="nav">
-    <a href="#/" id="navList">PRs</a>
+    <a href="/#/" id="navList">PRs</a>
     <a href="/leaderboard" id="navLeaderboard">Leaderboard</a>
-    <a href="#/search" id="navSearch">Search</a>
+    <a href="/#/search" id="navSearch">Search</a>
   </div>
   <div class="stats" id="stats"></div>
 </div>
@@ -287,7 +287,9 @@ let currentPage = 1;
 
 // --- Routing ---
 function navigate(path) {
-  window.location.hash = path;
+  const normalized = String(path || '/');
+  const target = normalized === '/' ? '/#/' : `/#${normalized}`;
+  window.location.assign(target);
 }
 
 function parseRouteValue(path, query) {
@@ -503,7 +505,7 @@ function ciDot(status) {
 function authorHref(handle) {
   const normalized = String(handle || '').trim().toLowerCase();
   if (!normalized) return null;
-  return '#/authors/' + encodeURIComponent(normalized);
+  return '/#/authors/' + encodeURIComponent(normalized);
 }
 
 function authorLink(handle, label) {
@@ -687,7 +689,7 @@ async function showDetail(number) {
                   : 'badge-gray';
                 const fileLabel = s.sharedFiles > 0 ? `${Math.round(s.fileSimilarity * 100)}% (${s.sharedFiles} shared)` : `${Math.round(s.fileSimilarity * 100)}%`;
                 return `<tr style="cursor:pointer" onclick="navigate('/pr/${s.number}')">
-                  <td><a href="#/pr/${s.number}" onclick="event.stopPropagation()">#${s.number}</a> <a href="https://github.com/paperclipai/paperclip/pull/${s.number}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-dim)">[gh]</a></td>
+                  <td><a href="/#/pr/${s.number}" onclick="event.stopPropagation()">#${s.number}</a> <a href="https://github.com/paperclipai/paperclip/pull/${s.number}" target="_blank" onclick="event.stopPropagation()" style="font-size:11px;color:var(--text-dim)">[gh]</a></td>
                   <td style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.title)}</td>
                   <td>${authorLink(s.authorHandle || s.author, s.author)}</td>
                   <td><span class="score-bar ${s.score >= 100 ? 'score-high' : s.score >= 65 ? 'score-mid' : 'score-low'}">${s.score}</span></td>
@@ -749,7 +751,7 @@ async function showAuthor(handle) {
         <h3>Latest Comments</h3>
         ${author.recentComments && author.recentComments.length ? author.recentComments.map(cm => `
           <div class="review-block">
-            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="#/pr/${cm.prNumber}">#${cm.prNumber}</a> ${esc(cm.prTitle)} · ${new Date(cm.createdAt).toLocaleDateString()}</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px"><a href="/#/pr/${cm.prNumber}">#${cm.prNumber}</a> ${esc(cm.prTitle)} · ${new Date(cm.createdAt).toLocaleDateString()}</div>
             <div class="description" style="max-height:120px">${esc(cm.excerpt || '')}</div>
           </div>
         `).join('') : '<div style="color:var(--text-muted)">No synced comments yet</div>'}
@@ -760,7 +762,7 @@ async function showAuthor(handle) {
         ${author.recentPRs && author.recentPRs.length ? author.recentPRs.map(pr => `
           <div class="review-block">
             <div class="prop" style="padding-top:0">
-              <span><a href="#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></span>
+              <span><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></span>
               <span>${pr.state}</span>
             </div>
             ${pr.bodyExcerpt ? `<div class="description" style="max-height:120px;margin-top:8px">${esc(pr.bodyExcerpt)}</div>` : ''}
@@ -870,7 +872,7 @@ async function executeSearch(q) {
     data.prs.map(g => `
       <div class="search-group">
         <div class="search-group-header">
-          <a href="#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)} <span style="font-weight:400;color:var(--text-muted)">by ${authorLink(g.authorHandle, g.author)}</span>
+          <a href="/#/pr/${g.pr_number}">#${g.pr_number}</a> ${esc(g.title)} <span style="font-weight:400;color:var(--text-muted)">by ${authorLink(g.authorHandle, g.author)}</span>
         </div>
         ${g.matches.map(m => `
           <div class="search-match">

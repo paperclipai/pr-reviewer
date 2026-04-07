@@ -34,7 +34,7 @@ const WILSON_Z = 1.96;
 export function githubAuthorProfilePath(handle: string | null | undefined): string | null {
   const normalized = normalizeGitHubHandle(handle);
   if (!normalized) return null;
-  return `#/authors/${encodeURIComponent(normalized)}`;
+  return `/#/authors/${encodeURIComponent(normalized)}`;
 }
 
 function toCount(input: unknown): number {

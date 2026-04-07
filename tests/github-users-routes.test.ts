@@ -110,7 +110,7 @@ describe('github user routes', () => {
     expect(prs[0]).toMatchObject({
       author: 'Alice',
       authorHandle: 'alice',
-      authorProfileUrl: '#/authors/alice',
+      authorProfileUrl: '/#/authors/alice',
     });
 
     const commentsRes = await app.request('http://example.test/api/prs/2/comments');
@@ -119,7 +119,7 @@ describe('github user routes', () => {
     expect(comments[0]).toMatchObject({
       author: 'Reviewer',
       authorHandle: 'reviewer',
-      authorProfileUrl: '#/authors/reviewer',
+      authorProfileUrl: '/#/authors/reviewer',
     });
   });
 
