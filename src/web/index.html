@@ -652,6 +652,15 @@ function formatPercent(value) {
   return `${Number(value).toFixed(value % 1 === 0 ? 0 : 1)}%`;
 }
 
+function compositeScoreClass(score) {
+  return score >= 80 ? 'score-high' : score >= 50 ? 'score-mid' : 'score-low';
+}
+
+function renderCompositeScore(score) {
+  if (!Number.isFinite(score)) return '<span class="badge badge-gray">—</span>';
+  return `<span class="score-bar ${compositeScoreClass(score)}">${score}</span>`;
+}
+
 function esc(s) {
   const d = document.createElement('div');
   d.textContent = s || '';
@@ -893,7 +902,7 @@ function renderThemePanels(overview, detail) {
             <div class="theme-card-grid theme-card-grid-wide">
               ${detail.cluster.exemplarPrs.map((pr) => `
               <div class="theme-list-item">
-                <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+                <div class="eyebrow"><span>${pr.state}</span><span>${renderCompositeScore(pr.compositeScore)}</span></div>
                 <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
                 <div class="summary">by ${authorLink(pr.authorHandle, pr.author)}</div>
               </div>
@@ -908,7 +917,7 @@ function renderThemePanels(overview, detail) {
             <div class="theme-card-grid theme-card-grid-wide">
               ${detail.prs.slice(0, 12).map((pr) => `
               <div class="theme-list-item">
-                <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+                <div class="eyebrow"><span>${pr.state}</span><span>${renderCompositeScore(pr.compositeScore)}</span></div>
                 <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
                 <div class="summary">${authorLink(pr.authorHandle, pr.author)} · ${Math.round(pr.similarity * 100)}% fit</div>
               </div>
