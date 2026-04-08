@@ -16,6 +16,7 @@ import {
   parseGitHubLeaderboardSort,
   sortGitHubUserSummaries,
 } from '../github/users';
+import { getThemeClusterDetail, getThemeOverview } from '../themes/query';
 
 export type { DbClient };
 
@@ -662,6 +663,19 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         updatedAt: row.updated_at,
       })),
     });
+  });
+
+  api.get('/themes', async (c) => {
+    const db = await getDb();
+    const overview = await getThemeOverview(db);
+    return c.json(overview);
+  });
+
+  api.get('/themes/:id', async (c) => {
+    const db = await getDb();
+    const detail = await getThemeClusterDetail(c.req.param('id'), db);
+    if (!detail) return c.json({ error: 'Theme cluster not found' }, 404);
+    return c.json(detail);
   });
 
   // Scoring formula explanation

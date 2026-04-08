@@ -7,6 +7,7 @@ import { listCandidates, getPRDetail, FilterOptions } from './scoring/filter';
 import { displayTable, displayPRDetail } from './display';
 import { reviewPR, reviewTopCandidates } from './llm/review';
 import { closeDb } from './db/client';
+import { rebuildThemeClusters } from './themes/cluster';
 
 const program = new Command();
 
@@ -100,6 +101,26 @@ program
       }
     } catch (err: any) {
       console.error(`Review failed: ${err.message}`);
+      process.exit(1);
+    } finally {
+      await closeDb();
+    }
+  });
+
+program
+  .command('cluster')
+  .description('Build hierarchical PR themes for the clustered UI')
+  .option('--state <state>', 'PR state scope (open|merged|closed|all)', 'open')
+  .action(async (opts) => {
+    try {
+      const state = String(opts.state || 'open') as 'open' | 'merged' | 'closed' | 'all';
+      if (!['open', 'merged', 'closed', 'all'].includes(state)) {
+        throw new Error(`Invalid state '${state}'. Use open, merged, closed, or all.`);
+      }
+      const result = await rebuildThemeClusters({ state });
+      console.log(`Built theme run ${result.runId} with ${result.clusterCount} clusters across ${result.itemCount} PRs.`);
+    } catch (err: any) {
+      console.error(`Cluster build failed: ${err.message}`);
       process.exit(1);
     } finally {
       await closeDb();

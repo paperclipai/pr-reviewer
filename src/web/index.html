@@ -140,10 +140,77 @@
   .leaderboard-user { min-width: 180px; }
   .metric-strong { font-variant-numeric: tabular-nums; font-weight: 700; }
 
+  .themes-shell { display: grid; gap: 18px; }
+  .theme-hero { position: relative; overflow: hidden; background:
+      radial-gradient(circle at top left, rgba(88,166,255,0.22), transparent 34%),
+      radial-gradient(circle at 80% 18%, rgba(63,185,80,0.16), transparent 28%),
+      linear-gradient(145deg, rgba(17,24,39,0.98), rgba(9,13,19,0.98));
+    border: 1px solid rgba(88,166,255,0.18); border-radius: 24px; padding: 28px; }
+  .theme-hero::after { content: ""; position: absolute; inset: 0; background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 28px 28px; mask-image: linear-gradient(to bottom, rgba(0,0,0,0.65), transparent); pointer-events: none; }
+  .theme-kicker { position: relative; z-index: 1; font-size: 11px; letter-spacing: 0.24em; text-transform: uppercase; color: #9fb7d8; margin-bottom: 10px; }
+  .theme-hero h2 { position: relative; z-index: 1; font-size: 34px; line-height: 1.05; max-width: 640px; margin-bottom: 12px; }
+  .theme-hero p { position: relative; z-index: 1; max-width: 760px; color: #b3c2d4; font-size: 15px; }
+  .theme-meta-grid { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-top: 20px; }
+  .theme-meta-card { background: rgba(5, 8, 12, 0.42); border: 1px solid rgba(159,183,216,0.16); border-radius: 16px; padding: 14px 16px; backdrop-filter: blur(8px); }
+  .theme-meta-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.12em; color: #8ca0ba; margin-bottom: 6px; }
+  .theme-meta-card .value { font-size: 24px; font-weight: 700; }
+  .theme-meta-card .sub { font-size: 12px; color: #9fb0c4; margin-top: 4px; }
+
+  .theme-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.95fr); gap: 18px; align-items: start; }
+  .theme-stage { position: relative; min-height: 560px; overflow: hidden; border-radius: 24px; border: 1px solid rgba(88,166,255,0.16);
+    background:
+      radial-gradient(circle at center, rgba(88,166,255,0.12), transparent 42%),
+      radial-gradient(circle at 20% 80%, rgba(248,81,73,0.12), transparent 26%),
+      linear-gradient(160deg, rgba(7,10,15,0.98), rgba(15,20,28,0.98)); }
+  .theme-stage::before { content: ""; position: absolute; inset: 0; background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 36px 36px; opacity: 0.7; pointer-events: none; }
+  .theme-stage-header { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; gap: 12px; padding: 18px 18px 0; z-index: 2; pointer-events: none; }
+  .theme-stage-header .title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.16em; color: #9fb0c4; }
+  .theme-stage-header .hint { font-size: 12px; color: #8b949e; text-align: right; max-width: 240px; }
+  .theme-node, .theme-pr-dot { position: absolute; transform: translate(-50%, -50%); border: 0; cursor: pointer; }
+  .theme-node { padding: 0; background: transparent; }
+  .theme-node-core { min-width: 110px; max-width: 180px; border-radius: 22px; padding: 14px 16px; text-align: left;
+    border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 18px 36px rgba(0,0,0,0.32);
+    backdrop-filter: blur(16px); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
+  .theme-node:hover .theme-node-core { transform: translateY(-2px) scale(1.02); box-shadow: 0 24px 42px rgba(0,0,0,0.38); border-color: rgba(255,255,255,0.28); }
+  .theme-node-title { font-size: 15px; font-weight: 700; line-height: 1.1; margin-bottom: 8px; }
+  .theme-node-meta { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: rgba(230,237,243,0.72); margin-bottom: 8px; }
+  .theme-node-summary { font-size: 12px; color: rgba(230,237,243,0.84); line-height: 1.35; }
+  .theme-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .theme-keyword { border-radius: 999px; padding: 3px 8px; font-size: 11px; border: 1px solid rgba(255,255,255,0.12); color: rgba(230,237,243,0.88); background: rgba(5,8,12,0.26); }
+  .theme-pr-dot { width: 16px; height: 16px; border-radius: 999px; box-shadow: 0 0 0 4px rgba(255,255,255,0.04), 0 10px 22px rgba(0,0,0,0.35); }
+  .theme-pr-dot:hover { transform: translate(-50%, -50%) scale(1.12); }
+  .theme-pr-label { position: absolute; transform: translate(-50%, calc(-50% + 16px)); font-size: 11px; color: #c6d4e3; pointer-events: none; white-space: nowrap; text-shadow: 0 1px 12px rgba(0,0,0,0.9); }
+
+  .theme-sidebar { display: grid; gap: 14px; }
+  .theme-panel { background: linear-gradient(180deg, rgba(20,26,34,0.98), rgba(11,15,20,0.98)); border: 1px solid rgba(88,166,255,0.14); border-radius: 20px; padding: 16px; }
+  .theme-panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: #94a8c0; margin-bottom: 14px; }
+  .theme-breadcrumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .theme-breadcrumbs a, .theme-breadcrumbs span { font-size: 12px; border-radius: 999px; padding: 5px 10px; background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.14); color: #d8e4f3; text-decoration: none; }
+  .theme-breadcrumbs a:hover { background: rgba(88,166,255,0.16); }
+  .theme-list { display: grid; gap: 10px; }
+  .theme-list-item { border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 12px; background: rgba(255,255,255,0.02); }
+  .theme-list-item .eyebrow { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #8ba0bc; margin-bottom: 8px; }
+  .theme-list-item .title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .theme-list-item .summary { font-size: 13px; color: #b3c2d4; line-height: 1.45; }
+  .theme-list-item .summary a { color: #dfe8f3; }
+  .theme-pill-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .theme-pill { border-radius: 999px; padding: 5px 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; background: rgba(63,185,80,0.08); border: 1px solid rgba(63,185,80,0.16); color: #b9e7c1; }
+  .theme-empty { display: grid; place-items: center; min-height: 420px; text-align: center; padding: 24px; color: #a6b5c7; }
+  .theme-empty strong { display: block; font-size: 20px; color: #eef4fb; margin-bottom: 8px; }
+
   @media (max-width: 900px) {
     .header { flex-wrap: wrap; gap: 12px; }
     .detail-grid { grid-template-columns: 1fr; }
     .container { padding: 16px; }
+    .theme-grid { grid-template-columns: 1fr; }
+    .theme-stage { min-height: 480px; }
+    .theme-hero h2 { font-size: 28px; }
   }
 </style>
 </head>
@@ -153,6 +220,7 @@
   <h1><a href="/#/">PR Triage</a> <span>paperclipai/paperclip</span></h1>
   <div class="nav">
     <a href="/#/" id="navList">PRs</a>
+    <a href="/#/themes" id="navThemes">Themes</a>
     <a href="/leaderboard" id="navLeaderboard">Leaderboard</a>
     <a href="/#/search" id="navSearch">Search</a>
   </div>
@@ -223,6 +291,10 @@
     </div>
   </div>
 
+  <div class="page" id="themesPage">
+    <div id="themesContent"></div>
+  </div>
+
   <!-- Detail Page -->
   <div class="page" id="detailPage">
     <button class="back-btn" onclick="navigate('/')">&larr; Back to list</button>
@@ -282,6 +354,7 @@ let sortKey = 'compositeScore';
 let sortDir = -1;
 let leaderboardSort = 'mergeScore';
 let leaderboardUsers = [];
+let cachedThemeOverview = null;
 const PAGE_SIZE = 25;
 let currentPage = 1;
 
@@ -299,6 +372,12 @@ function parseRouteValue(path, query) {
   }
   if (path.startsWith('/authors/')) {
     return { page: 'author', handle: decodeURIComponent(path.slice('/authors/'.length)) };
+  }
+  if (path === '/themes') {
+    return { page: 'themes', clusterId: null };
+  }
+  if (path.startsWith('/themes/')) {
+    return { page: 'themes', clusterId: decodeURIComponent(path.slice('/themes/'.length)) };
   }
   if (path === '/leaderboard') {
     return { page: 'leaderboard' };
@@ -326,6 +405,7 @@ function showPage(name) {
   document.getElementById(name + 'Page').classList.add('active');
   document.querySelectorAll('.nav a').forEach(a => a.classList.remove('active'));
   if (name === 'list' || name === 'detail' || name === 'author') document.getElementById('navList').classList.add('active');
+  if (name === 'themes') document.getElementById('navThemes').classList.add('active');
   if (name === 'leaderboard') document.getElementById('navLeaderboard').classList.add('active');
   if (name === 'search') document.getElementById('navSearch').classList.add('active');
 }
@@ -338,6 +418,9 @@ async function handleRoute() {
   } else if (route.page === 'author') {
     showPage('author');
     await showAuthor(route.handle);
+  } else if (route.page === 'themes') {
+    showPage('themes');
+    await showThemes(route.clusterId);
   } else if (route.page === 'leaderboard') {
     showPage('leaderboard');
     document.getElementById('leaderboardSort').value = leaderboardSort;
@@ -567,6 +650,213 @@ function recBadge(rec) {
 function riskBadge(risk) {
   const map = { low: 'badge-green', medium: 'badge-yellow', high: 'badge-red', critical: 'badge-red' };
   return `<span class="badge ${map[risk] || 'badge-gray'}">${risk || 'unknown'}</span>`;
+}
+
+function themeColor(seed) {
+  const hash = String(seed || '').split('').reduce((acc, char) => ((acc << 5) - acc + char.charCodeAt(0)) | 0, 0);
+  const hue = Math.abs(hash) % 360;
+  return {
+    bg: `linear-gradient(145deg, hsla(${hue}, 75%, 58%, 0.28), hsla(${(hue + 38) % 360}, 72%, 45%, 0.18))`,
+    glow: `hsla(${hue}, 84%, 62%, 0.78)`,
+    solid: `hsl(${hue}, 76%, 62%)`,
+  };
+}
+
+function themeNodeWidth(itemCount) {
+  return Math.max(118, Math.min(176, 108 + itemCount * 4));
+}
+
+function themeRootLink(clusterId) {
+  return clusterId ? '/#/themes/' + encodeURIComponent(clusterId) : '/#/themes';
+}
+
+function renderThemeClusterNode(cluster, extraClass = '') {
+  const color = themeColor(cluster.id);
+  const width = themeNodeWidth(cluster.itemCount);
+  return `
+    <button class="theme-node ${extraClass}" style="left:${cluster.centroidX}%;top:${cluster.centroidY}%"
+      onclick="navigate('/themes/${encodeURIComponent(cluster.id)}')">
+      <div class="theme-node-core" style="width:${width}px;background:${color.bg};box-shadow:0 18px 40px rgba(0,0,0,0.34), 0 0 0 1px ${color.glow}22;">
+        <div class="theme-node-meta"><span>${cluster.itemCount} PRs</span><span>${cluster.hasChildren ? 'zoom in' : 'leaf'}</span></div>
+        <div class="theme-node-title">${esc(cluster.label)}</div>
+        <div class="theme-node-summary">${esc(cluster.summary)}</div>
+        ${cluster.keywords && cluster.keywords.length ? `<div class="theme-keywords">${cluster.keywords.slice(0, 3).map((keyword) => `<span class="theme-keyword">${esc(keyword)}</span>`).join('')}</div>` : ''}
+      </div>
+    </button>
+  `;
+}
+
+function renderThemePrDot(pr) {
+  const color = themeColor(`pr-${pr.number}`);
+  return `
+    <button class="theme-pr-dot" title="#${pr.number} ${esc(pr.title)}"
+      style="left:${pr.x}%;top:${pr.y}%;background:${color.solid}"
+      onclick="navigate('/pr/${pr.number}')"></button>
+    <div class="theme-pr-label" style="left:${pr.x}%;top:${pr.y}%">#${pr.number}</div>
+  `;
+}
+
+function renderThemeHero(overview, detail) {
+  const levels = overview.levels.map((level) => `${level.count} at depth ${level.depth}`).join(' · ');
+  const focus = detail ? detail.cluster.label : 'Root constellation';
+  return `
+    <div class="theme-hero">
+      <div class="theme-kicker">Theme Atlas</div>
+      <h2>${detail ? `Zoomed into ${esc(detail.cluster.label)}` : 'Explore PR themes as a navigable constellation'}</h2>
+      <p>${detail ? esc(detail.cluster.summary) : 'Clustered PRs are laid out as persistent themes so you can jump from broad areas to narrow slices without losing the shape of the queue.'}</p>
+      <div class="theme-meta-grid">
+        <div class="theme-meta-card">
+          <div class="label">Current Focus</div>
+          <div class="value">${esc(focus)}</div>
+          <div class="sub">${overview.run ? `Run ${esc(overview.run.id.slice(0, 8))}` : 'No run yet'}</div>
+        </div>
+        <div class="theme-meta-card">
+          <div class="label">Clustered PRs</div>
+          <div class="value">${overview.run ? overview.run.itemCount : 0}</div>
+          <div class="sub">${overview.run ? `${esc(overview.run.stateFilter)} scope` : 'Build a cluster run first'}</div>
+        </div>
+        <div class="theme-meta-card">
+          <div class="label">Depth Map</div>
+          <div class="value">${overview.levels.length}</div>
+          <div class="sub">${levels || 'No levels yet'}</div>
+        </div>
+        <div class="theme-meta-card">
+          <div class="label">Generated</div>
+          <div class="value" style="font-size:18px">${overview.run ? new Date(overview.run.createdAt).toLocaleString() : '—'}</div>
+          <div class="sub">Batch-built and stored in D1</div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderThemeSidebar(overview, detail) {
+  if (!detail) {
+    return `
+      <div class="theme-sidebar">
+        <div class="theme-panel">
+          <h3>Root Clusters</h3>
+          <div class="theme-list">
+            ${overview.clusters.map((cluster) => `
+              <div class="theme-list-item">
+                <div class="eyebrow"><span>${cluster.itemCount} PRs</span><span>${cluster.hasChildren ? 'Drill down' : 'Leaf cluster'}</span></div>
+                <div class="title"><a href="${themeRootLink(cluster.id)}">${esc(cluster.label)}</a></div>
+                <div class="summary">${esc(cluster.summary)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="theme-sidebar">
+      <div class="theme-panel">
+        <h3>Navigation</h3>
+        <div class="theme-breadcrumbs">
+          <a href="/#/themes">All themes</a>
+          ${detail.breadcrumbs.map((crumb) => `<a href="${themeRootLink(crumb.id)}">${esc(crumb.label)}</a>`).join('')}
+          <span>${esc(detail.cluster.label)}</span>
+        </div>
+        <div class="theme-pill-row">
+          <span class="theme-pill">${detail.cluster.itemCount} PRs</span>
+          <span class="theme-pill">${detail.children.length ? detail.children.length + ' child clusters' : 'Leaf cluster'}</span>
+          <span class="theme-pill">${detail.cluster.depth === 0 ? 'root level' : 'depth ' + detail.cluster.depth}</span>
+        </div>
+      </div>
+
+      <div class="theme-panel">
+        <h3>Representative PRs</h3>
+        <div class="theme-list">
+          ${detail.cluster.exemplarPrs.map((pr) => `
+            <div class="theme-list-item">
+              <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+              <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
+              <div class="summary">by ${authorLink(pr.authorHandle, pr.author)}</div>
+            </div>
+          `).join('') || '<div class="summary">No exemplar PRs stored for this cluster yet.</div>'}
+        </div>
+      </div>
+
+      <div class="theme-panel">
+        <h3>${detail.children.length ? 'Cluster Members' : 'PR Members'}</h3>
+        <div class="theme-list">
+          ${detail.prs.slice(0, 12).map((pr) => `
+            <div class="theme-list-item">
+              <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+              <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
+              <div class="summary">${authorLink(pr.authorHandle, pr.author)} · ${Math.round(pr.similarity * 100)}% fit</div>
+            </div>
+          `).join('') || '<div class="summary">No PR memberships available.</div>'}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderThemeStage(overview, detail) {
+  if (detail) {
+    const childMarkup = detail.children.map((cluster) => renderThemeClusterNode(cluster)).join('');
+    const prMarkup = detail.children.length === 0 ? detail.prs.map((pr) => renderThemePrDot(pr)).join('') : '';
+    return `
+      <div class="theme-stage">
+        <div class="theme-stage-header">
+          <div class="title">${detail.children.length ? 'Child clusters' : 'Member PRs'}</div>
+          <div class="hint">${detail.children.length ? 'Click a child cluster to keep drilling into the topic graph.' : 'Each dot is an individual PR positioned inside the selected cluster.'}</div>
+        </div>
+        ${childMarkup}
+        ${prMarkup}
+      </div>
+    `;
+  }
+
+  return `
+    <div class="theme-stage">
+      <div class="theme-stage-header">
+        <div class="title">Root constellation</div>
+        <div class="hint">Each node is a top-level theme. Bigger nodes hold more PRs. Click any node to zoom into its local map.</div>
+      </div>
+      ${overview.clusters.map((cluster) => renderThemeClusterNode(cluster)).join('')}
+    </div>
+  `;
+}
+
+async function showThemes(clusterId) {
+  const root = document.getElementById('themesContent');
+  root.innerHTML = '<div class="loading">Loading clustered view...</div>';
+
+  const overviewRes = await fetch('/api/themes');
+  const overview = await overviewRes.json();
+  cachedThemeOverview = overview;
+
+  if (!overview.run || !overview.clusters.length) {
+    root.innerHTML = `
+      <div class="theme-empty">
+        <div>
+          <strong>No cluster run yet</strong>
+          Build a theme run with the cluster pipeline and this page will render the stored hierarchy here.
+        </div>
+      </div>
+    `;
+    return;
+  }
+
+  let detail = null;
+  if (clusterId) {
+    const detailRes = await fetch(`/api/themes/${encodeURIComponent(clusterId)}`);
+    if (detailRes.ok) detail = await detailRes.json();
+  }
+
+  root.innerHTML = `
+    <div class="themes-shell">
+      ${renderThemeHero(overview, detail)}
+      <div class="theme-grid">
+        ${renderThemeStage(overview, detail)}
+        ${renderThemeSidebar(overview, detail)}
+      </div>
+    </div>
+  `;
 }
 
 // --- Detail ---

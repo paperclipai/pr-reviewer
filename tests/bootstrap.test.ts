@@ -46,7 +46,7 @@ describe('initializeDb', () => {
 
   test('skips schema work when the version marker is already present', async () => {
     const { db, calls } = createFakeDb();
-    db.get = async () => ({ value: '2' });
+    db.get = async () => ({ value: '3' });
 
     await initializeDb(db);
 

@@ -96,6 +96,57 @@ CREATE TABLE IF NOT EXISTS github_users (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS theme_pr_documents (
+  pr_number INTEGER PRIMARY KEY REFERENCES pull_requests(number),
+  document_text TEXT NOT NULL,
+  document_hash TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS theme_runs (
+  id TEXT PRIMARY KEY,
+  algorithm TEXT NOT NULL,
+  state_filter TEXT NOT NULL DEFAULT 'open',
+  item_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_theme_runs_created_at ON theme_runs(created_at DESC);
+
+CREATE TABLE IF NOT EXISTS theme_clusters (
+  id TEXT PRIMARY KEY,
+  run_id TEXT NOT NULL REFERENCES theme_runs(id) ON DELETE CASCADE,
+  parent_cluster_id TEXT REFERENCES theme_clusters(id) ON DELETE CASCADE,
+  depth INTEGER NOT NULL,
+  slug TEXT NOT NULL,
+  label TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  item_count INTEGER NOT NULL,
+  avg_score INTEGER NOT NULL DEFAULT 0,
+  centroid_x REAL NOT NULL DEFAULT 50,
+  centroid_y REAL NOT NULL DEFAULT 50,
+  keywords_json TEXT NOT NULL DEFAULT '[]',
+  exemplar_prs_json TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE INDEX IF NOT EXISTS idx_theme_clusters_run_parent ON theme_clusters(run_id, parent_cluster_id);
+CREATE INDEX IF NOT EXISTS idx_theme_clusters_parent ON theme_clusters(parent_cluster_id);
+
+CREATE TABLE IF NOT EXISTS theme_cluster_memberships (
+  run_id TEXT NOT NULL REFERENCES theme_runs(id) ON DELETE CASCADE,
+  cluster_id TEXT NOT NULL REFERENCES theme_clusters(id) ON DELETE CASCADE,
+  pr_number INTEGER NOT NULL REFERENCES pull_requests(number) ON DELETE CASCADE,
+  depth INTEGER NOT NULL,
+  similarity REAL NOT NULL DEFAULT 0,
+  x REAL NOT NULL DEFAULT 50,
+  y REAL NOT NULL DEFAULT 50,
+  rank INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (run_id, cluster_id, pr_number)
+);
+
+CREATE INDEX IF NOT EXISTS idx_theme_memberships_cluster ON theme_cluster_memberships(cluster_id, rank ASC);
+CREATE INDEX IF NOT EXISTS idx_theme_memberships_pr ON theme_cluster_memberships(pr_number);
+
 CREATE TABLE IF NOT EXISTS sync_state (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

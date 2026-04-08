@@ -17,6 +17,8 @@ export function createApp(getDb: () => Promise<DbClient>, html: string, faviconS
   app.get('/', (c) => c.html(html));
   app.get('/leaderboard', (c) => c.html(html));
   app.get('/search', (c) => c.html(html));
+  app.get('/themes', (c) => c.html(html));
+  app.get('/themes/:id', (c) => c.html(html));
   app.get('/pr/:number', (c) => c.html(html));
   app.get('/authors/:handle', (c) => c.html(html));
   return app;
