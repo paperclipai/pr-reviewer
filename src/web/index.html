@@ -159,21 +159,28 @@
   .theme-meta-card .value { font-size: 24px; font-weight: 700; }
   .theme-meta-card .sub { font-size: 12px; color: #9fb0c4; margin-top: 4px; }
 
-  .theme-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.95fr); gap: 18px; align-items: start; }
-  .theme-stage { position: relative; min-height: 560px; overflow: hidden; border-radius: 24px; border: 1px solid rgba(88,166,255,0.16);
+  .theme-stage-stack { display: grid; gap: 18px; }
+  .theme-stage { position: relative; min-height: 680px; overflow: hidden; border-radius: 28px; border: 1px solid rgba(88,166,255,0.16);
     background:
       radial-gradient(circle at center, rgba(88,166,255,0.12), transparent 42%),
       radial-gradient(circle at 20% 80%, rgba(248,81,73,0.12), transparent 26%),
-      linear-gradient(160deg, rgba(7,10,15,0.98), rgba(15,20,28,0.98)); }
+    linear-gradient(160deg, rgba(7,10,15,0.98), rgba(15,20,28,0.98)); }
   .theme-stage::before { content: ""; position: absolute; inset: 0; background-image:
       linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
       linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
     background-size: 36px 36px; opacity: 0.7; pointer-events: none; }
-  .theme-stage-header { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; gap: 12px; padding: 18px 18px 0; z-index: 2; pointer-events: none; }
+  .theme-stage-header { position: absolute; inset: 0 0 auto 0; display: flex; justify-content: space-between; gap: 16px; padding: 18px 18px 0; z-index: 4; pointer-events: none; }
   .theme-stage-header .title { font-size: 13px; text-transform: uppercase; letter-spacing: 0.16em; color: #9fb0c4; }
-  .theme-stage-header .hint { font-size: 12px; color: #8b949e; text-align: right; max-width: 240px; }
+  .theme-stage-header .hint { font-size: 12px; color: #8b949e; text-align: right; max-width: 320px; }
+  .theme-stage-controls { position: absolute; top: 76px; right: 18px; z-index: 4; display: flex; align-items: center; gap: 8px; }
+  .theme-stage-controls button { border: 1px solid rgba(159,183,216,0.2); background: rgba(7,10,15,0.72); color: #e6edf3; border-radius: 999px; width: 34px; height: 34px; cursor: pointer; font-size: 16px; backdrop-filter: blur(12px); }
+  .theme-stage-controls button:hover { background: rgba(88,166,255,0.16); }
+  .theme-stage-zoom { min-width: 70px; text-align: center; font-size: 12px; color: #dce6f3; border-radius: 999px; padding: 8px 10px; border: 1px solid rgba(159,183,216,0.16); background: rgba(7,10,15,0.72); backdrop-filter: blur(12px); }
+  .theme-stage-viewport { position: absolute; inset: 76px 14px 14px; overflow: hidden; cursor: grab; border-radius: 22px; }
+  .theme-stage-viewport.is-panning { cursor: grabbing; }
+  .theme-stage-canvas { position: absolute; left: 0; top: 0; transform-origin: 0 0; will-change: transform; }
   .theme-node, .theme-pr-dot { position: absolute; transform: translate(-50%, -50%); border: 0; cursor: pointer; }
-  .theme-node { padding: 0; background: transparent; }
+  .theme-node { padding: 0; background: transparent; z-index: 2; }
   .theme-node-core { min-width: 110px; max-width: 180px; border-radius: 22px; padding: 14px 16px; text-align: left;
     border: 1px solid rgba(255,255,255,0.16); box-shadow: 0 18px 36px rgba(0,0,0,0.32);
     backdrop-filter: blur(16px); transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease; }
@@ -183,17 +190,21 @@
   .theme-node-summary { font-size: 12px; color: rgba(230,237,243,0.84); line-height: 1.35; }
   .theme-keywords { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   .theme-keyword { border-radius: 999px; padding: 3px 8px; font-size: 11px; border: 1px solid rgba(255,255,255,0.12); color: rgba(230,237,243,0.88); background: rgba(5,8,12,0.26); }
-  .theme-pr-dot { width: 16px; height: 16px; border-radius: 999px; box-shadow: 0 0 0 4px rgba(255,255,255,0.04), 0 10px 22px rgba(0,0,0,0.35); }
+  .theme-pr-dot { width: 16px; height: 16px; border-radius: 999px; box-shadow: 0 0 0 4px rgba(255,255,255,0.04), 0 10px 22px rgba(0,0,0,0.35); z-index: 1; }
   .theme-pr-dot:hover { transform: translate(-50%, -50%) scale(1.12); }
-  .theme-pr-label { position: absolute; transform: translate(-50%, calc(-50% + 16px)); font-size: 11px; color: #c6d4e3; pointer-events: none; white-space: nowrap; text-shadow: 0 1px 12px rgba(0,0,0,0.9); }
+  .theme-pr-label { position: absolute; transform: translate(-50%, calc(-50% + 16px)); font-size: 11px; color: #c6d4e3; pointer-events: none; white-space: nowrap; text-shadow: 0 1px 12px rgba(0,0,0,0.9); opacity: 0; transition: opacity 140ms ease; }
+  .theme-pr-dot:hover + .theme-pr-label, .theme-pr-dot:focus + .theme-pr-label, .theme-stage[data-zoom-state="zoomed"] .theme-pr-label { opacity: 1; }
 
-  .theme-sidebar { display: grid; gap: 14px; }
+  .theme-panels { display: grid; gap: 18px; }
+  .theme-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
   .theme-panel { background: linear-gradient(180deg, rgba(20,26,34,0.98), rgba(11,15,20,0.98)); border: 1px solid rgba(88,166,255,0.14); border-radius: 20px; padding: 16px; }
+  .theme-panel-wide { grid-column: 1 / -1; }
   .theme-panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: #94a8c0; margin-bottom: 14px; }
   .theme-breadcrumbs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
   .theme-breadcrumbs a, .theme-breadcrumbs span { font-size: 12px; border-radius: 999px; padding: 5px 10px; background: rgba(88,166,255,0.08); border: 1px solid rgba(88,166,255,0.14); color: #d8e4f3; text-decoration: none; }
   .theme-breadcrumbs a:hover { background: rgba(88,166,255,0.16); }
   .theme-list { display: grid; gap: 10px; }
+  .theme-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
   .theme-list-item { border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 12px; background: rgba(255,255,255,0.02); }
   .theme-list-item .eyebrow { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #8ba0bc; margin-bottom: 8px; }
   .theme-list-item .title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
@@ -208,8 +219,11 @@
     .header { flex-wrap: wrap; gap: 12px; }
     .detail-grid { grid-template-columns: 1fr; }
     .container { padding: 16px; }
-    .theme-grid { grid-template-columns: 1fr; }
-    .theme-stage { min-height: 480px; }
+    .theme-stage { min-height: 560px; }
+    .theme-stage-header { flex-direction: column; }
+    .theme-stage-header .hint { max-width: none; text-align: left; }
+    .theme-stage-controls { top: auto; right: 14px; bottom: 14px; }
+    .theme-card-grid, .theme-panel-grid { grid-template-columns: 1fr; }
     .theme-hero h2 { font-size: 28px; }
   }
 </style>
@@ -355,6 +369,7 @@ let sortDir = -1;
 let leaderboardSort = 'mergeScore';
 let leaderboardUsers = [];
 let cachedThemeOverview = null;
+const themeStageStates = new Map();
 const PAGE_SIZE = 25;
 let currentPage = 1;
 
@@ -663,24 +678,121 @@ function themeColor(seed) {
 }
 
 function themeNodeWidth(itemCount) {
-  return Math.max(118, Math.min(176, 108 + itemCount * 4));
+  return Math.max(104, Math.min(152, 92 + itemCount * 2.4));
 }
 
 function themeRootLink(clusterId) {
   return clusterId ? '/#/themes/' + encodeURIComponent(clusterId) : '/#/themes';
 }
 
+function sortThemeClusters(clusters) {
+  return [...clusters].sort((a, b) => {
+    if ((b.itemCount || 0) !== (a.itemCount || 0)) return (b.itemCount || 0) - (a.itemCount || 0);
+    return String(a.label || '').localeCompare(String(b.label || ''));
+  });
+}
+
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function themeStageKey(clusterId) {
+  return clusterId || '__root__';
+}
+
+function getThemeStageState(stageKey) {
+  if (!themeStageStates.has(stageKey)) {
+    themeStageStates.set(stageKey, { scale: 1, offsetX: 0, offsetY: 0, userAdjusted: false });
+  }
+  return themeStageStates.get(stageKey);
+}
+
+function computeThemeLayout(items, options = {}) {
+  const canvasWidth = options.canvasWidth || 2200;
+  const canvasHeight = options.canvasHeight || 1280;
+  const padding = options.padding || 54;
+  const spreadX = options.spreadX || 1.4;
+  const spreadY = options.spreadY || 1.26;
+  const centerX = canvasWidth / 2;
+  const centerY = canvasHeight / 2;
+
+  const laidOut = items.map((item, index) => {
+    const rawX = Number.isFinite(item.centroidX) ? item.centroidX : Number.isFinite(item.x) ? item.x : 50;
+    const rawY = Number.isFinite(item.centroidY) ? item.centroidY : Number.isFinite(item.y) ? item.y : 50;
+    const radius = options.kind === 'cluster'
+      ? Math.max(78, themeNodeWidth(item.itemCount || 1) * 0.62)
+      : 18;
+    const anchorX = clamp(centerX + ((rawX / 100) * canvasWidth - centerX) * spreadX, radius + padding, canvasWidth - radius - padding);
+    const anchorY = clamp(centerY + ((rawY / 100) * canvasHeight - centerY) * spreadY, radius + padding, canvasHeight - radius - padding);
+    return { ...item, layoutRadius: radius, anchorX, anchorY, layoutX: anchorX, layoutY: anchorY, _index: index };
+  });
+
+  const gap = options.kind === 'cluster' ? 28 : 10;
+  const pull = options.kind === 'cluster' ? 0.045 : 0.03;
+  const iterations = options.kind === 'cluster' ? 160 : 120;
+
+  for (let step = 0; step < iterations; step += 1) {
+    for (let i = 0; i < laidOut.length; i += 1) {
+      const a = laidOut[i];
+      for (let j = i + 1; j < laidOut.length; j += 1) {
+        const b = laidOut[j];
+        let dx = b.layoutX - a.layoutX;
+        let dy = b.layoutY - a.layoutY;
+        let distance = Math.hypot(dx, dy);
+        const minDistance = a.layoutRadius + b.layoutRadius + gap;
+        if (distance >= minDistance) continue;
+        if (distance < 0.001) {
+          const angle = (((a._index + 1) * 37 + (b._index + 1) * 17) % 360) * (Math.PI / 180);
+          dx = Math.cos(angle);
+          dy = Math.sin(angle);
+          distance = 1;
+        }
+        const push = (minDistance - distance) * 0.5;
+        const nx = dx / distance;
+        const ny = dy / distance;
+        a.layoutX -= nx * push;
+        a.layoutY -= ny * push;
+        b.layoutX += nx * push;
+        b.layoutY += ny * push;
+      }
+    }
+
+    for (const item of laidOut) {
+      item.layoutX += (item.anchorX - item.layoutX) * pull;
+      item.layoutY += (item.anchorY - item.layoutY) * pull;
+      item.layoutX = clamp(item.layoutX, item.layoutRadius + padding, canvasWidth - item.layoutRadius - padding);
+      item.layoutY = clamp(item.layoutY, item.layoutRadius + padding, canvasHeight - item.layoutRadius - padding);
+    }
+  }
+
+  const bounds = laidOut.reduce((acc, item) => {
+    acc.minX = Math.min(acc.minX, item.layoutX - item.layoutRadius);
+    acc.maxX = Math.max(acc.maxX, item.layoutX + item.layoutRadius);
+    acc.minY = Math.min(acc.minY, item.layoutY - item.layoutRadius);
+    acc.maxY = Math.max(acc.maxY, item.layoutY + item.layoutRadius);
+    return acc;
+  }, { minX: canvasWidth, maxX: 0, minY: canvasHeight, maxY: 0 });
+
+  return {
+    items: laidOut,
+    canvasWidth,
+    canvasHeight,
+    bounds,
+  };
+}
+
 function renderThemeClusterNode(cluster, extraClass = '') {
   const color = themeColor(cluster.id);
   const width = themeNodeWidth(cluster.itemCount);
+  const showSummary = (cluster.itemCount || 0) >= 60;
   return `
-    <button class="theme-node ${extraClass}" style="left:${cluster.centroidX}%;top:${cluster.centroidY}%"
+    <button class="theme-node ${extraClass}" style="left:${cluster.layoutX}px;top:${cluster.layoutY}px"
       onclick="navigate('/themes/${encodeURIComponent(cluster.id)}')">
       <div class="theme-node-core" style="width:${width}px;background:${color.bg};box-shadow:0 18px 40px rgba(0,0,0,0.34), 0 0 0 1px ${color.glow}22;">
         <div class="theme-node-meta"><span>${cluster.itemCount} PRs</span><span>${cluster.hasChildren ? 'zoom in' : 'leaf'}</span></div>
         <div class="theme-node-title">${esc(cluster.label)}</div>
-        <div class="theme-node-summary">${esc(cluster.summary)}</div>
-        ${cluster.keywords && cluster.keywords.length ? `<div class="theme-keywords">${cluster.keywords.slice(0, 3).map((keyword) => `<span class="theme-keyword">${esc(keyword)}</span>`).join('')}</div>` : ''}
+        ${showSummary ? `<div class="theme-node-summary">${esc(cluster.summary)}</div>` : ''}
+        ${showSummary && cluster.keywords && cluster.keywords.length ? `<div class="theme-keywords">${cluster.keywords.slice(0, 2).map((keyword) => `<span class="theme-keyword">${esc(keyword)}</span>`).join('')}</div>` : ''}
       </div>
     </button>
   `;
@@ -690,9 +802,18 @@ function renderThemePrDot(pr) {
   const color = themeColor(`pr-${pr.number}`);
   return `
     <button class="theme-pr-dot" title="#${pr.number} ${esc(pr.title)}"
-      style="left:${pr.x}%;top:${pr.y}%;background:${color.solid}"
+      style="left:${pr.layoutX}px;top:${pr.layoutY}px;background:${color.solid}"
       onclick="navigate('/pr/${pr.number}')"></button>
-    <div class="theme-pr-label" style="left:${pr.x}%;top:${pr.y}%">#${pr.number}</div>
+    <div class="theme-pr-label" style="left:${pr.layoutX}px;top:${pr.layoutY}px">#${pr.number}</div>
+  `;
+}
+
+function renderThemeCardGrid(items, emptyText) {
+  if (!items.length) return `<div class="summary">${emptyText}</div>`;
+  return `
+    <div class="theme-card-grid">
+      ${items.join('')}
+    </div>
   `;
 }
 
@@ -730,65 +851,94 @@ function renderThemeHero(overview, detail) {
   `;
 }
 
-function renderThemeSidebar(overview, detail) {
+function renderThemePanels(overview, detail) {
   if (!detail) {
     return `
-      <div class="theme-sidebar">
-        <div class="theme-panel">
+      <div class="theme-panels">
+        <div class="theme-panel theme-panel-wide">
           <h3>Root Clusters</h3>
-          <div class="theme-list">
-            ${overview.clusters.map((cluster) => `
+          ${renderThemeCardGrid(sortThemeClusters(overview.clusters).map((cluster) => `
               <div class="theme-list-item">
                 <div class="eyebrow"><span>${cluster.itemCount} PRs</span><span>${cluster.hasChildren ? 'Drill down' : 'Leaf cluster'}</span></div>
                 <div class="title"><a href="${themeRootLink(cluster.id)}">${esc(cluster.label)}</a></div>
                 <div class="summary">${esc(cluster.summary)}</div>
               </div>
-            `).join('')}
-          </div>
+            `), 'No root clusters available.')}
         </div>
       </div>
     `;
   }
 
   return `
-    <div class="theme-sidebar">
-      <div class="theme-panel">
-        <h3>Navigation</h3>
-        <div class="theme-breadcrumbs">
-          <a href="/#/themes">All themes</a>
-          ${detail.breadcrumbs.map((crumb) => `<a href="${themeRootLink(crumb.id)}">${esc(crumb.label)}</a>`).join('')}
-          <span>${esc(detail.cluster.label)}</span>
+    <div class="theme-panels">
+      <div class="theme-panel-grid">
+        <div class="theme-panel">
+          <h3>Navigation</h3>
+          <div class="theme-breadcrumbs">
+            <a href="/#/themes">All themes</a>
+            ${detail.breadcrumbs.map((crumb) => `<a href="${themeRootLink(crumb.id)}">${esc(crumb.label)}</a>`).join('')}
+            <span>${esc(detail.cluster.label)}</span>
+          </div>
+          <div class="theme-pill-row">
+            <span class="theme-pill">${detail.cluster.itemCount} PRs</span>
+            <span class="theme-pill">${detail.children.length ? detail.children.length + ' child clusters' : 'Leaf cluster'}</span>
+            <span class="theme-pill">${detail.cluster.depth === 0 ? 'root level' : 'depth ' + detail.cluster.depth}</span>
+          </div>
         </div>
-        <div class="theme-pill-row">
-          <span class="theme-pill">${detail.cluster.itemCount} PRs</span>
-          <span class="theme-pill">${detail.children.length ? detail.children.length + ' child clusters' : 'Leaf cluster'}</span>
-          <span class="theme-pill">${detail.cluster.depth === 0 ? 'root level' : 'depth ' + detail.cluster.depth}</span>
+
+        <div class="theme-panel">
+          <h3>Representative PRs</h3>
+          <div class="theme-list">
+            ${detail.cluster.exemplarPrs.map((pr) => `
+              <div class="theme-list-item">
+                <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+                <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
+                <div class="summary">by ${authorLink(pr.authorHandle, pr.author)}</div>
+              </div>
+            `).join('') || '<div class="summary">No exemplar PRs stored for this cluster yet.</div>'}
+          </div>
+        </div>
+
+        <div class="theme-panel">
+          <h3>${detail.children.length ? 'Cluster Members' : 'PR Members'}</h3>
+          <div class="theme-list">
+            ${detail.prs.slice(0, 12).map((pr) => `
+              <div class="theme-list-item">
+                <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
+                <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
+                <div class="summary">${authorLink(pr.authorHandle, pr.author)} · ${Math.round(pr.similarity * 100)}% fit</div>
+              </div>
+            `).join('') || '<div class="summary">No PR memberships available.</div>'}
+          </div>
         </div>
       </div>
+    </div>
+  `;
+}
 
-      <div class="theme-panel">
-        <h3>Representative PRs</h3>
-        <div class="theme-list">
-          ${detail.cluster.exemplarPrs.map((pr) => `
-            <div class="theme-list-item">
-              <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
-              <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
-              <div class="summary">by ${authorLink(pr.authorHandle, pr.author)}</div>
-            </div>
-          `).join('') || '<div class="summary">No exemplar PRs stored for this cluster yet.</div>'}
-        </div>
+function renderThemeStageFrame(stageKey, title, hint, bodyMarkup, layout) {
+  const bounds = [
+    Math.max(0, Math.floor(layout.bounds.minX || 0)),
+    Math.max(0, Math.floor(layout.bounds.minY || 0)),
+    Math.min(layout.canvasWidth, Math.ceil(layout.bounds.maxX || layout.canvasWidth)),
+    Math.min(layout.canvasHeight, Math.ceil(layout.bounds.maxY || layout.canvasHeight)),
+  ].join(',');
+
+  return `
+    <div class="theme-stage" data-theme-stage data-stage-key="${esc(stageKey)}" data-bounds="${bounds}">
+      <div class="theme-stage-header">
+        <div class="title">${esc(title)}</div>
+        <div class="hint">${esc(hint)}</div>
       </div>
-
-      <div class="theme-panel">
-        <h3>${detail.children.length ? 'Cluster Members' : 'PR Members'}</h3>
-        <div class="theme-list">
-          ${detail.prs.slice(0, 12).map((pr) => `
-            <div class="theme-list-item">
-              <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
-              <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
-              <div class="summary">${authorLink(pr.authorHandle, pr.author)} · ${Math.round(pr.similarity * 100)}% fit</div>
-            </div>
-          `).join('') || '<div class="summary">No PR memberships available.</div>'}
+      <div class="theme-stage-controls">
+        <button type="button" data-theme-control="zoom-out" aria-label="Zoom out">-</button>
+        <div class="theme-stage-zoom" data-theme-zoom>100%</div>
+        <button type="button" data-theme-control="zoom-in" aria-label="Zoom in">+</button>
+        <button type="button" data-theme-control="reset" aria-label="Reset view">&#9673;</button>
+      </div>
+      <div class="theme-stage-viewport" data-theme-viewport>
+        <div class="theme-stage-canvas" data-theme-canvas style="width:${layout.canvasWidth}px;height:${layout.canvasHeight}px">
+          ${bodyMarkup}
         </div>
       </div>
     </div>
@@ -797,29 +947,167 @@ function renderThemeSidebar(overview, detail) {
 
 function renderThemeStage(overview, detail) {
   if (detail) {
-    const childMarkup = detail.children.map((cluster) => renderThemeClusterNode(cluster)).join('');
-    const prMarkup = detail.children.length === 0 ? detail.prs.map((pr) => renderThemePrDot(pr)).join('') : '';
-    return `
-      <div class="theme-stage">
-        <div class="theme-stage-header">
-          <div class="title">${detail.children.length ? 'Child clusters' : 'Member PRs'}</div>
-          <div class="hint">${detail.children.length ? 'Click a child cluster to keep drilling into the topic graph.' : 'Each dot is an individual PR positioned inside the selected cluster.'}</div>
-        </div>
-        ${childMarkup}
-        ${prMarkup}
-      </div>
-    `;
+    if (detail.children.length) {
+      const layout = computeThemeLayout(detail.children, { kind: 'cluster', canvasWidth: 2200, canvasHeight: 1280, spreadX: 1.52, spreadY: 1.3 });
+      const childMarkup = layout.items.map((cluster) => renderThemeClusterNode(cluster)).join('');
+      return renderThemeStageFrame(
+        themeStageKey(detail.cluster.id),
+        'Child clusters',
+        'Drag to pan, use the wheel to zoom, and click a cluster card to keep drilling into the topic graph.',
+        childMarkup,
+        layout,
+      );
+    }
+
+    const layout = computeThemeLayout(detail.prs, { kind: 'pr', canvasWidth: 1800, canvasHeight: 1200, spreadX: 1.45, spreadY: 1.3, padding: 36 });
+    const prMarkup = layout.items.map((pr) => renderThemePrDot(pr)).join('');
+    return renderThemeStageFrame(
+      themeStageKey(detail.cluster.id),
+      'Member PRs',
+      'Drag to pan and use the wheel to zoom. Hover a dot, or zoom in, to reveal its PR number.',
+      prMarkup,
+      layout,
+    );
   }
 
-  return `
-    <div class="theme-stage">
-      <div class="theme-stage-header">
-        <div class="title">Root constellation</div>
-        <div class="hint">Each node is a top-level theme. Bigger nodes hold more PRs. Click any node to zoom into its local map.</div>
-      </div>
-      ${overview.clusters.map((cluster) => renderThemeClusterNode(cluster)).join('')}
-    </div>
-  `;
+  const layout = computeThemeLayout(overview.clusters, { kind: 'cluster', canvasWidth: 2440, canvasHeight: 1420, spreadX: 1.58, spreadY: 1.32 });
+  const rootMarkup = layout.items.map((cluster) => renderThemeClusterNode(cluster)).join('');
+  return renderThemeStageFrame(
+    themeStageKey(null),
+    'Root constellation',
+    'Top-level themes now occupy the full canvas. Drag to pan, use the wheel to zoom, and use the grid below for a cleaner list view.',
+    rootMarkup,
+    layout,
+  );
+}
+
+function fitThemeStage(stage, state) {
+  const viewport = stage.querySelector('[data-theme-viewport]');
+  const canvas = stage.querySelector('[data-theme-canvas]');
+  if (!viewport || !canvas) return;
+  const bounds = (stage.dataset.bounds || '').split(',').map((value) => Number(value));
+  const [minX, minY, maxX, maxY] = bounds.length === 4 && bounds.every((value) => Number.isFinite(value))
+    ? bounds
+    : [0, 0, canvas.offsetWidth, canvas.offsetHeight];
+  const viewportWidth = viewport.clientWidth;
+  const viewportHeight = viewport.clientHeight;
+  const contentWidth = Math.max(320, (maxX - minX) + 180);
+  const contentHeight = Math.max(240, (maxY - minY) + 180);
+  const scale = clamp(Math.min(viewportWidth / contentWidth, viewportHeight / contentHeight), 0.48, 1);
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+  state.scale = scale;
+  state.offsetX = (viewportWidth / 2) - (centerX * scale);
+  state.offsetY = (viewportHeight / 2) - (centerY * scale);
+}
+
+function clampThemeStageState(state, viewport, canvas) {
+  const viewportWidth = viewport.clientWidth;
+  const viewportHeight = viewport.clientHeight;
+  const canvasWidth = canvas.offsetWidth * state.scale;
+  const canvasHeight = canvas.offsetHeight * state.scale;
+  const overscrollX = Math.max(120, viewportWidth * 0.1);
+  const overscrollY = Math.max(120, viewportHeight * 0.1);
+  state.offsetX = clamp(state.offsetX, viewportWidth - canvasWidth - overscrollX, overscrollX);
+  state.offsetY = clamp(state.offsetY, viewportHeight - canvasHeight - overscrollY, overscrollY);
+}
+
+function applyThemeStageTransform(stage, state) {
+  const viewport = stage.querySelector('[data-theme-viewport]');
+  const canvas = stage.querySelector('[data-theme-canvas]');
+  const zoomLabel = stage.querySelector('[data-theme-zoom]');
+  if (!viewport || !canvas || !zoomLabel) return;
+  clampThemeStageState(state, viewport, canvas);
+  canvas.style.transform = `translate(${state.offsetX}px, ${state.offsetY}px) scale(${state.scale})`;
+  zoomLabel.textContent = `${Math.round(state.scale * 100)}%`;
+  stage.dataset.zoomState = state.scale >= 1.2 ? 'zoomed' : 'fit';
+}
+
+function initializeThemeStages(root) {
+  root.querySelectorAll('[data-theme-stage]').forEach((stage) => {
+    const viewport = stage.querySelector('[data-theme-viewport]');
+    const canvas = stage.querySelector('[data-theme-canvas]');
+    if (!viewport || !canvas) return;
+    const stageKey = stage.dataset.stageKey || '__root__';
+    const state = getThemeStageState(stageKey);
+    fitThemeStage(stage, state);
+    applyThemeStageTransform(stage, state);
+
+    const update = () => applyThemeStageTransform(stage, state);
+    const reset = () => {
+      state.userAdjusted = false;
+      fitThemeStage(stage, state);
+      update();
+    };
+
+    let drag = null;
+    viewport.addEventListener('pointerdown', (event) => {
+      if (event.target.closest('button, a')) return;
+      drag = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, offsetX: state.offsetX, offsetY: state.offsetY };
+      viewport.classList.add('is-panning');
+      viewport.setPointerCapture(event.pointerId);
+    });
+
+    viewport.addEventListener('pointermove', (event) => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      state.userAdjusted = true;
+      state.offsetX = drag.offsetX + (event.clientX - drag.startX);
+      state.offsetY = drag.offsetY + (event.clientY - drag.startY);
+      update();
+    });
+
+    const stopDrag = (event) => {
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      drag = null;
+      viewport.classList.remove('is-panning');
+      if (viewport.hasPointerCapture(event.pointerId)) viewport.releasePointerCapture(event.pointerId);
+    };
+
+    viewport.addEventListener('pointerup', stopDrag);
+    viewport.addEventListener('pointercancel', stopDrag);
+    viewport.addEventListener('pointerleave', stopDrag);
+
+    viewport.addEventListener('wheel', (event) => {
+      event.preventDefault();
+      const rect = viewport.getBoundingClientRect();
+      const cursorX = event.clientX - rect.left;
+      const cursorY = event.clientY - rect.top;
+      const nextScale = clamp(state.scale * Math.exp(-event.deltaY * 0.0014), 0.48, 2.8);
+      const contentX = (cursorX - state.offsetX) / state.scale;
+      const contentY = (cursorY - state.offsetY) / state.scale;
+      state.scale = nextScale;
+      state.offsetX = cursorX - (contentX * nextScale);
+      state.offsetY = cursorY - (contentY * nextScale);
+      state.userAdjusted = true;
+      update();
+    }, { passive: false });
+
+    stage.querySelectorAll('[data-theme-control]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const action = button.dataset.themeControl;
+        if (action === 'reset') {
+          reset();
+          return;
+        }
+        const rect = viewport.getBoundingClientRect();
+        const anchorX = rect.width / 2;
+        const anchorY = rect.height / 2;
+        const contentX = (anchorX - state.offsetX) / state.scale;
+        const contentY = (anchorY - state.offsetY) / state.scale;
+        const factor = action === 'zoom-in' ? 1.18 : 1 / 1.18;
+        state.scale = clamp(state.scale * factor, 0.48, 2.8);
+        state.offsetX = anchorX - (contentX * state.scale);
+        state.offsetY = anchorY - (contentY * state.scale);
+        state.userAdjusted = true;
+        update();
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      if (!state.userAdjusted) fitThemeStage(stage, state);
+      update();
+    }, { once: true });
+  });
 }
 
 async function showThemes(clusterId) {
@@ -851,12 +1139,13 @@ async function showThemes(clusterId) {
   root.innerHTML = `
     <div class="themes-shell">
       ${renderThemeHero(overview, detail)}
-      <div class="theme-grid">
+      <div class="theme-stage-stack">
         ${renderThemeStage(overview, detail)}
-        ${renderThemeSidebar(overview, detail)}
+        ${renderThemePanels(overview, detail)}
       </div>
     </div>
   `;
+  initializeThemeStages(root);
 }
 
 // --- Detail ---
