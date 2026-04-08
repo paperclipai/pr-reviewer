@@ -4,6 +4,10 @@ The PR triage dashboard for [paperclipai/paperclip](https://github.com/paperclip
 
 **Live dashboard:** https://pr-triage.bippadotta.workers.dev
 
+## Planning docs
+
+- [`docs/pr-theme-clustering.md`](docs/pr-theme-clustering.md) outlines the proposed clustering architecture and rollout plan for the zoomable PR themes UI.
+
 ## Deploying
 
 The dashboard runs as a Cloudflare Worker with a D1 database.
