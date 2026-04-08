@@ -196,7 +196,7 @@
   .theme-pr-dot:hover + .theme-pr-label, .theme-pr-dot:focus + .theme-pr-label, .theme-stage[data-zoom-state="zoomed"] .theme-pr-label { opacity: 1; }
 
   .theme-panels { display: grid; gap: 18px; }
-  .theme-panel-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 18px; align-items: start; }
+  .theme-panel-grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
   .theme-panel { background: linear-gradient(180deg, rgba(20,26,34,0.98), rgba(11,15,20,0.98)); border: 1px solid rgba(88,166,255,0.14); border-radius: 20px; padding: 16px; }
   .theme-panel-wide { grid-column: 1 / -1; }
   .theme-panel h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.16em; color: #94a8c0; margin-bottom: 14px; }
@@ -205,6 +205,7 @@
   .theme-breadcrumbs a:hover { background: rgba(88,166,255,0.16); }
   .theme-list { display: grid; gap: 10px; }
   .theme-card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .theme-card-grid-wide { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
   .theme-list-item { border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 12px; background: rgba(255,255,255,0.02); }
   .theme-list-item .eyebrow { display: flex; justify-content: space-between; gap: 10px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #8ba0bc; margin-bottom: 8px; }
   .theme-list-item .title { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
@@ -223,7 +224,7 @@
     .theme-stage-header { flex-direction: column; }
     .theme-stage-header .hint { max-width: none; text-align: left; }
     .theme-stage-controls { top: auto; right: 14px; bottom: 14px; }
-    .theme-card-grid, .theme-panel-grid { grid-template-columns: 1fr; }
+    .theme-card-grid, .theme-card-grid-wide, .theme-panel-grid { grid-template-columns: 1fr; }
     .theme-hero h2 { font-size: 28px; }
   }
 </style>
@@ -872,7 +873,7 @@ function renderThemePanels(overview, detail) {
   return `
     <div class="theme-panels">
       <div class="theme-panel-grid">
-        <div class="theme-panel">
+        <div class="theme-panel theme-panel-wide">
           <h3>Navigation</h3>
           <div class="theme-breadcrumbs">
             <a href="/#/themes">All themes</a>
@@ -886,30 +887,34 @@ function renderThemePanels(overview, detail) {
           </div>
         </div>
 
-        <div class="theme-panel">
+        <div class="theme-panel theme-panel-wide">
           <h3>Representative PRs</h3>
-          <div class="theme-list">
-            ${detail.cluster.exemplarPrs.map((pr) => `
+          ${detail.cluster.exemplarPrs.length ? `
+            <div class="theme-card-grid theme-card-grid-wide">
+              ${detail.cluster.exemplarPrs.map((pr) => `
               <div class="theme-list-item">
                 <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
                 <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
                 <div class="summary">by ${authorLink(pr.authorHandle, pr.author)}</div>
               </div>
-            `).join('') || '<div class="summary">No exemplar PRs stored for this cluster yet.</div>'}
-          </div>
+              `).join('')}
+            </div>
+          ` : '<div class="summary">No exemplar PRs stored for this cluster yet.</div>'}
         </div>
 
-        <div class="theme-panel">
+        <div class="theme-panel theme-panel-wide">
           <h3>${detail.children.length ? 'Cluster Members' : 'PR Members'}</h3>
-          <div class="theme-list">
-            ${detail.prs.slice(0, 12).map((pr) => `
+          ${detail.prs.length ? `
+            <div class="theme-card-grid theme-card-grid-wide">
+              ${detail.prs.slice(0, 12).map((pr) => `
               <div class="theme-list-item">
                 <div class="eyebrow"><span>${pr.state}</span><span>score ${pr.compositeScore}</span></div>
                 <div class="title"><a href="/#/pr/${pr.number}">#${pr.number} ${esc(pr.title)}</a></div>
                 <div class="summary">${authorLink(pr.authorHandle, pr.author)} · ${Math.round(pr.similarity * 100)}% fit</div>
               </div>
-            `).join('') || '<div class="summary">No PR memberships available.</div>'}
-          </div>
+              `).join('')}
+            </div>
+          ` : '<div class="summary">No PR memberships available.</div>'}
         </div>
       </div>
     </div>
