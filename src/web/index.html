@@ -337,6 +337,9 @@
           <option value="comments">Comments</option>
         </select>
       </label>
+      <label style="margin-left:16px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+        <input type="checkbox" id="leaderboardOpenOnly"> Has open PRs
+      </label>
     </div>
     <div id="leaderboardSummary" class="leaderboard-summary"></div>
     <table>
@@ -368,6 +371,7 @@ let allPRs = [];
 let sortKey = 'compositeScore';
 let sortDir = -1;
 let leaderboardSort = 'mergeScore';
+let leaderboardOpenOnly = false;
 let leaderboardUsers = [];
 let cachedThemeOverview = null;
 const themeStageStates = new Map();
@@ -440,6 +444,7 @@ async function handleRoute() {
   } else if (route.page === 'leaderboard') {
     showPage('leaderboard');
     document.getElementById('leaderboardSort').value = leaderboardSort;
+    document.getElementById('leaderboardOpenOnly').checked = leaderboardOpenOnly;
     await loadLeaderboard();
   } else if (route.page === 'search') {
     showPage('search');
@@ -1388,16 +1393,17 @@ async function loadLeaderboard() {
 function renderLeaderboard() {
   const tbody = document.getElementById('leaderboardTable');
   const summary = document.getElementById('leaderboardSummary');
+  const filtered = leaderboardOpenOnly ? leaderboardUsers.filter(u => u.openPRs > 0) : leaderboardUsers;
 
-  if (!leaderboardUsers.length) {
+  if (!filtered.length) {
     summary.innerHTML = '';
-    tbody.innerHTML = '<tr><td colspan="9" class="empty">No synced authors yet</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="9" class="empty">${leaderboardOpenOnly ? 'No authors with open PRs' : 'No synced authors yet'}</td></tr>`;
     return;
   }
 
-  const topMergeScore = leaderboardUsers[0];
-  const topMerged = [...leaderboardUsers].sort((a, b) => b.mergedPRs - a.mergedPRs || b.mergeScore - a.mergeScore)[0];
-  const topComments = [...leaderboardUsers].sort((a, b) => b.commentCount - a.commentCount || b.totalPRs - a.totalPRs)[0];
+  const topMergeScore = filtered[0];
+  const topMerged = [...filtered].sort((a, b) => b.mergedPRs - a.mergedPRs || b.mergeScore - a.mergeScore)[0];
+  const topComments = [...filtered].sort((a, b) => b.commentCount - a.commentCount || b.totalPRs - a.totalPRs)[0];
 
   summary.innerHTML = `
     <div class="summary-card">
@@ -1420,7 +1426,7 @@ function renderLeaderboard() {
     </div>
   `;
 
-  tbody.innerHTML = leaderboardUsers.map((user, index) => `
+  tbody.innerHTML = filtered.map((user, index) => `
     <tr>
       <td class="leaderboard-rank">#${index + 1}</td>
       <td class="leaderboard-user">${authorLink(user.handle, user.author)}</td>
@@ -1502,6 +1508,10 @@ document.querySelectorAll('th[data-sort]').forEach(th => {
 document.getElementById('leaderboardSort').addEventListener('change', (e) => {
   leaderboardSort = e.target.value;
   loadLeaderboard();
+});
+document.getElementById('leaderboardOpenOnly').addEventListener('change', (e) => {
+  leaderboardOpenOnly = e.target.checked;
+  renderLeaderboard();
 });
 
 // --- Init ---
