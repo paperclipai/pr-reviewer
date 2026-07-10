@@ -40,5 +40,6 @@
     "@types/node": "^25.4.0",
     "typescript": "^5.9.3",
     "vitest": "^4.0.18"
-  }
+  },
+  "homepage": "https://docs.paperclip.ing"
 }

@@ -4,6 +4,8 @@ The PR triage dashboard for [paperclipai/paperclip](https://github.com/paperclip
 
 **Live dashboard:** https://pr-triage.bippadotta.workers.dev
 
+**Paperclip documentation:** https://docs.paperclip.ing
+
 ## Deploying
 
 The dashboard runs as a Cloudflare Worker with a D1 database.
