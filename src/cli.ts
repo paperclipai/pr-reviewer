@@ -6,7 +6,7 @@ import { syncPullRequests } from './github/sync';
 import { listCandidates, getPRDetail, FilterOptions } from './scoring/filter';
 import { displayTable, displayPRDetail } from './display';
 import { reviewPR, reviewTopCandidates } from './llm/review';
-import { closeDb } from './db/client';
+import { closeDb, getDb } from './db/client';
 
 const program = new Command();
 
@@ -14,6 +14,21 @@ program
   .name('pr-triage')
   .description('PR triage CLI for paperclipai/paperclip')
   .version('1.0.0');
+
+program
+  .command('init-db')
+  .description('Initialize or migrate the configured database without syncing GitHub')
+  .action(async () => {
+    try {
+      await getDb();
+      console.log('Database schema is ready.');
+    } catch (err: any) {
+      console.error(`Database initialization failed: ${err.message}`);
+      process.exitCode = 1;
+    } finally {
+      await closeDb();
+    }
+  });
 
 program
   .command('sync')

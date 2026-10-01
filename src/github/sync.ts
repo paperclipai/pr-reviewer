@@ -291,6 +291,13 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
             state=excluded.state,
             updated_at=excluded.updated_at,
             fetched_at=datetime('now')
+          WHERE pull_requests.title IS NOT excluded.title
+             OR pull_requests.body IS NOT excluded.body
+             OR pull_requests.author IS NOT excluded.author
+             OR pull_requests.author_handle IS NOT excluded.author_handle
+             OR pull_requests.head_sha IS NOT excluded.head_sha
+             OR pull_requests.state IS NOT excluded.state
+             OR pull_requests.updated_at IS NOT excluded.updated_at
         `, [
           cpr.number, cpr.title, cpr.body ?? null,
           cpr.user?.login ?? 'unknown', normalizeGitHubHandle(cpr.user?.login ?? 'unknown'), cpr.head.sha,
@@ -317,8 +324,8 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
         per_page: 1,
       }),
     ]);
-    await db.run(`INSERT INTO sync_state (key, value) VALUES ('merged_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [String(mergedRes.data.total_count)]);
-    await db.run(`INSERT INTO sync_state (key, value) VALUES ('closed_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value`, [String(closedRes.data.total_count)]);
+    await db.run(`INSERT INTO sync_state (key, value) VALUES ('merged_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE sync_state.value IS NOT excluded.value`, [String(mergedRes.data.total_count)]);
+    await db.run(`INSERT INTO sync_state (key, value) VALUES ('closed_count', ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value WHERE sync_state.value IS NOT excluded.value`, [String(closedRes.data.total_count)]);
   } catch (err: any) {
     console.error(chalk.yellow(`Could not fetch closed/merged counts: ${err.message}`));
   }
