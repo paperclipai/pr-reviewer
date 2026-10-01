@@ -165,14 +165,17 @@ export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
     UPDATE pull_requests
     SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
     WHERE COALESCE(author, '') != ''
+      AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
   `);
   await db.run(`
     UPDATE pr_comments
     SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
     WHERE COALESCE(author, '') != ''
+      AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
   `);
 
-  await db.run(`DELETE FROM github_users`);
+  // Keep existing summaries (and their creation dates). An unchanged sync
+  // should not rewrite every contributor or temporarily empty the leaderboard.
   await db.run(`
     INSERT INTO github_users (
       handle,
@@ -253,6 +256,34 @@ export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
       datetime('now'),
       datetime('now')
     FROM author_handles ah
+    WHERE true
     ORDER BY ah.handle
+    ON CONFLICT(handle) DO UPDATE SET
+      display_handle = excluded.display_handle,
+      pr_count = excluded.pr_count,
+      open_pr_count = excluded.open_pr_count,
+      merged_pr_count = excluded.merged_pr_count,
+      closed_unmerged_pr_count = excluded.closed_unmerged_pr_count,
+      comment_count = excluded.comment_count,
+      latest_pr_number = excluded.latest_pr_number,
+      latest_pr_at = excluded.latest_pr_at,
+      latest_comment_id = excluded.latest_comment_id,
+      latest_comment_at = excluded.latest_comment_at,
+      updated_at = excluded.updated_at
+    WHERE github_users.display_handle IS NOT excluded.display_handle
+       OR github_users.pr_count IS NOT excluded.pr_count
+       OR github_users.open_pr_count IS NOT excluded.open_pr_count
+       OR github_users.merged_pr_count IS NOT excluded.merged_pr_count
+       OR github_users.closed_unmerged_pr_count IS NOT excluded.closed_unmerged_pr_count
+       OR github_users.comment_count IS NOT excluded.comment_count
+       OR github_users.latest_pr_number IS NOT excluded.latest_pr_number
+       OR github_users.latest_pr_at IS NOT excluded.latest_pr_at
+       OR github_users.latest_comment_id IS NOT excluded.latest_comment_id
+       OR github_users.latest_comment_at IS NOT excluded.latest_comment_at
+  `);
+  await db.run(`
+    DELETE FROM github_users
+    WHERE NOT EXISTS (SELECT 1 FROM pull_requests WHERE author_handle = github_users.handle)
+      AND NOT EXISTS (SELECT 1 FROM pr_comments WHERE author_handle = github_users.handle)
   `);
 }

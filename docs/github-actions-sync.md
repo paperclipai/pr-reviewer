@@ -1,6 +1,17 @@
 # GitHub Actions sync setup
 
-This repository includes a scheduled workflow at `.github/workflows/sync-pr-data.yml` that runs the existing `sync` CLI every two hours and writes into Cloudflare D1.
+This repository includes a scheduled workflow at `.github/workflows/sync-pr-data.yml` that runs the existing `sync` CLI every 15 minutes and writes into Cloudflare D1.
+
+The Worker only reads the database; it does not perform migrations on page loads.
+Before serving a newly created database, run `npm run build` and
+`node dist/cli.js init-db` with the database configuration below. This explicitly
+initializes or migrates the database without fetching GitHub data. The `sync`
+command also checks and applies migrations before syncing.
+
+Contributor refreshes normalize only changed handles and update only changed
+summaries, preserving their creation dates. Unchanged closed/merged PRs and
+repository counts are not rewritten; an unchanged sync only updates its
+`last_sync_at` progress marker.
 
 ## What the workflow expects
 
@@ -67,4 +78,4 @@ The current database ID checked into `wrangler.toml` is `75a1a683-e935-4eb8-a0ba
 
 ## Schedule
 
-The workflow cron is `0 */2 * * *`, which GitHub Actions evaluates in UTC. That means it runs at the top of every even UTC hour.
+The workflow cron is `*/15 * * * *`, which GitHub Actions evaluates in UTC.

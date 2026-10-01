@@ -209,4 +209,28 @@ describe('syncPullRequests github users', () => {
     expect(stalePr?.state).toBe('merged');
     expect(syncedComment?.author_handle).toBe('alice');
   });
+
+  test('an unchanged sync writes only its progress marker, including closed PR history', async () => {
+    const paginate = mockState.octokit.paginate.getMockImplementation()!;
+    mockState.octokit.paginate.mockImplementation(async (endpoint: unknown, params: any) => {
+      if (endpoint === mockState.pullsList && params.state === 'closed') {
+        return [{ number: 4, title: 'Merged PR', body: 'Already merged', user: { login: 'Carol' },
+          head: { sha: 'sha-4' }, merged_at: '2026-04-01T10:00:00Z',
+          created_at: '2026-04-01T09:00:00Z', updated_at: '2026-04-01T10:00:00Z' }];
+      }
+      return paginate(endpoint, params);
+    });
+    mockState.octokit.rest.search.issuesAndPullRequests.mockReset();
+    mockState.octokit.rest.search.issuesAndPullRequests.mockResolvedValue({ data: { total_count: 1 } });
+    await syncPullRequests();
+    const before = (await db.get<{ n: number }>('SELECT total_changes() AS n'))!.n;
+    const users = await db.all('SELECT * FROM github_users ORDER BY handle');
+
+    await syncPullRequests();
+
+    const after = (await db.get<{ n: number }>('SELECT total_changes() AS n'))!.n;
+    expect(after - before).toBe(1);
+    expect(await db.all('SELECT * FROM github_users ORDER BY handle')).toEqual(users);
+    expect(await db.get('SELECT state FROM pull_requests WHERE number = 4')).toEqual({ state: 'merged' });
+  });
 });
