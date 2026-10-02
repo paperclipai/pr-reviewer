@@ -160,19 +160,34 @@ export function parseGitHubLeaderboardSort(input: string | null | undefined): Gi
   }
 }
 
-export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
-  await db.run(`
-    UPDATE pull_requests
-    SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
-    WHERE COALESCE(author, '') != ''
-      AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
-  `);
-  await db.run(`
-    UPDATE pr_comments
-    SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
-    WHERE COALESCE(author, '') != ''
-      AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
-  `);
+// Passing handles uses the existing author_handle indexes. The full path is
+// reserved for initialization/repair; normal syncs refresh only queued handles.
+export async function rebuildGitHubUsers(db: DbClient, handles?: string[]): Promise<void> {
+  if (handles) {
+    handles = [...new Set(handles.map(normalizeGitHubHandle).filter(Boolean))];
+    if (!handles.length) return;
+    // D1 limits bound parameters per statement. Keep each refresh below 100.
+    if (handles.length > 80) {
+      for (let i = 0; i < handles.length; i += 80) {
+        await rebuildGitHubUsers(db, handles.slice(i, i + 80));
+      }
+      return;
+    }
+  }
+  if (!handles) {
+    await db.run(`
+      UPDATE pull_requests
+      SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
+      WHERE COALESCE(author, '') != ''
+        AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
+    `);
+    await db.run(`
+      UPDATE pr_comments
+      SET author_handle = LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
+      WHERE COALESCE(author, '') != ''
+        AND author_handle IS NOT LOWER(TRIM(COALESCE(NULLIF(author_handle, ''), author)))
+    `);
+  }
 
   // Keep existing summaries (and their creation dates). An unchanged sync
   // should not rewrite every contributor or temporarily empty the leaderboard.
@@ -192,14 +207,14 @@ export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
       created_at,
       updated_at
     )
-    WITH author_handles AS (
-      SELECT author_handle AS handle
+    WITH author_handles(handle) AS (
+      ${handles ? handles.map(() => 'SELECT ?').join(' UNION ') : `SELECT author_handle AS handle
       FROM pull_requests
       WHERE COALESCE(author_handle, '') != ''
       UNION
       SELECT author_handle AS handle
       FROM pr_comments
-      WHERE COALESCE(author_handle, '') != ''
+      WHERE COALESCE(author_handle, '') != ''`}
     )
     SELECT
       ah.handle,
@@ -256,7 +271,8 @@ export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
       datetime('now'),
       datetime('now')
     FROM author_handles ah
-    WHERE true
+    WHERE EXISTS (SELECT 1 FROM pull_requests WHERE author_handle = ah.handle)
+       OR EXISTS (SELECT 1 FROM pr_comments WHERE author_handle = ah.handle)
     ORDER BY ah.handle
     ON CONFLICT(handle) DO UPDATE SET
       display_handle = excluded.display_handle,
@@ -280,10 +296,10 @@ export async function rebuildGitHubUsers(db: DbClient): Promise<void> {
        OR github_users.latest_pr_at IS NOT excluded.latest_pr_at
        OR github_users.latest_comment_id IS NOT excluded.latest_comment_id
        OR github_users.latest_comment_at IS NOT excluded.latest_comment_at
-  `);
+  `, handles ?? []);
   await db.run(`
     DELETE FROM github_users
-    WHERE NOT EXISTS (SELECT 1 FROM pull_requests WHERE author_handle = github_users.handle)
+    WHERE ${handles ? `handle IN (${handles.map(() => '?').join(',')}) AND` : ''} NOT EXISTS (SELECT 1 FROM pull_requests WHERE author_handle = github_users.handle)
       AND NOT EXISTS (SELECT 1 FROM pr_comments WHERE author_handle = github_users.handle)
-  `);
+  `, handles ?? []);
 }

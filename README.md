@@ -32,6 +32,69 @@ The dashboard runs as a Cloudflare Worker with a D1 database.
 
 Merges to `master` are automatically deployed via CI — manual deploys are only needed for initial setup or debugging.
 
+## D1 read usage and freshness
+
+Scheduled sync refreshes contributor summaries only for affected PR/comment authors.
+It records pending work in the existing `sync_state` table before changing source
+rows, because D1's REST client executes batches sequentially. Interrupted PR saves
+are replayed even if the PR has since closed. Failed summary refreshes remain
+queued, and `last_sync_at` advances only after the entire sync succeeds. The
+existing workflow serializes sync jobs; other callers must also use a single sync
+writer per database.
+
+The first sync with this implementation performs one full contributor repair and
+stores `incremental_users_version=1`. Later unchanged syncs read only queue/marker
+rows for this stage. This adds no tables, columns, indexes, or schema-version
+migration; it uses the normalized handles and indexes already created by schema
+version 2. Existing data, scoring rules, and response shapes are preserved.
+
+The Worker caches successful public API GET responses per database binding and
+Worker isolate. It checks `last_sync_at` at most once per minute and clears cached
+responses when the marker changes. Every response also expires five minutes after
+its fetch started, bounding staleness after partial sync failures, out-of-band
+writes, and time-based score changes. Revision-check failures discard the cache.
+Authorization/cookie requests, errors, private responses, static routes, and sync
+requests bypass it. The local Node server remains uncached.
+
+The cache retains at most 64 responses / 16 MiB, accepts responses up to 4 MiB, and
+coalesces at most four distinct fills. Oversized responses pass through without
+being retained. Deployments/new isolates start cold. This reduces repeated reads
+but does not guarantee that an account stays within the free quota.
+
+On a local fixture with 11,000 PRs, 25,000 comments, and 165,000 files, compared with
+commit `3dec121`, SQLite reported:
+
+| Operation | Previous row visits | New row visits |
+| --- | ---: | ---: |
+| Default PR list, uncached | 246,875 | 96,051 |
+| Author-filtered PR list | 209,090 | 221 |
+| PR detail | 11,024 | 35 |
+| Contributor profile | 36,118 | 146 |
+| Similar PRs | 224,763 | 11,326 |
+| Contributor refresh: full rebuild → one affected handle | 236,501 | 132 |
+
+An unchanged contributor-refresh stage uses two marker queries and one indexed
+row visit. A warm cached list uses zero database queries; its periodic unchanged
+revision check uses one query/row. These stage measurements exclude the rest of
+the scheduled sync. Cold stats queries are unchanged: 6,803 scan visits plus
+36,000 rows counted through SQLite's fast `COUNT(*)` path, which scanstatus does
+not report. Similar-PR ranking still compares all PR bodies; its lower read cost
+does not establish that cold requests fit the Worker's CPU limit.
+
+To reproduce locally, install dependencies with Node 22.18 or newer and run:
+
+```bash
+node --experimental-strip-types scripts/measure-read-cost.ts 3dec121
+```
+
+The script requires `clang`, compiles a SQLite scanstatus harness from the
+repository's installed dependency, and writes synthetic fixtures, exact SQL,
+query plans, response comparisons, and results under the system temporary
+directory. It makes no GitHub or Cloudflare requests. It checks exact response
+parity, including mixed-case authors, temporarily missing summaries, similarity
+ranking, and cached responses. Measurements are local SQLite row visits, not
+Cloudflare billed reads or Worker CPU measurements.
+
 ## How scoring works
 
 Every PR receives a **composite score from 0 to 180**, built from ten signals. The goal is to surface PRs that are most likely to be worth reviewing right now — small, well-tested PRs from reliable contributors with passing CI will naturally float to the top.

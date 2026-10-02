@@ -41,4 +41,19 @@ describe('Worker read-only requests', () => {
     expect(prepare.mock.calls.every(([sql]) => sql.startsWith('SELECT'))).toBe(true);
     expect(write).not.toHaveBeenCalled();
   });
+
+  test('keeps warm API reads across requests and isolates different database bindings', async () => {
+    const prepare = vi.fn((sql: string) => ({
+      bind: () => ({ first: async () => sql.includes('COUNT') ? { cnt: 3 } : null }),
+    }));
+    const env = { DB: { prepare } } as any;
+    const request = new Request('https://example.com/api/stats');
+    expect((await worker.fetch(request, env)).status).toBe(200);
+    const reads = prepare.mock.calls.length;
+    const warm = await worker.fetch(request, env);
+    expect(warm.headers.get('X-PR-Cache')).toBe('hit');
+    expect(prepare).toHaveBeenCalledTimes(reads);
+    expect((await worker.fetch(request, { DB: { prepare } } as any)).headers.get('X-PR-Cache')).toBe('miss');
+    expect(prepare).toHaveBeenCalledTimes(reads * 2);
+  });
 });

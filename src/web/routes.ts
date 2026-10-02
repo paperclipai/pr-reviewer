@@ -84,6 +84,9 @@ const PR_SELECT = `
     pr.mergeable, pr.mergeable_state, pr.state, pr.labels_json,
     pr.additions, pr.deletions, pr.changed_files,
     pr.created_at, pr.updated_at,
+    EXISTS(SELECT 1 FROM pr_files WHERE pr_number = pr.number AND (${TEST_FILE_SQL})) AS has_tests,
+    (${THINKING_PATH_SQL}) AS has_thinking_path,
+    (${ISSUE_LINK_SQL}) AS has_issue_link,
     (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
     (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
     (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
@@ -117,35 +120,30 @@ function jaccard(a: Set<string>, b: Set<string>): number {
   return union === 0 ? 0 : intersection / union;
 }
 
-function extractDirs(filename: string): string[] {
-  const parts = filename.split('/');
-  const dirs: string[] = [];
-  for (let i = 1; i < parts.length; i++) {
-    dirs.push(parts.slice(0, i).join('/'));
-  }
-  return dirs;
-}
-
-// --- Batch author stats helper ---
-
-function buildAuthorMap(rows: Array<{ author: string; state: string; cnt: number }>): Map<string, AuthorStats> {
-  const authorMap = new Map<string, AuthorStats>();
-  for (const r of rows) {
-    if (!authorMap.has(r.author)) {
-      authorMap.set(r.author, { openCount: 0, mergedCount: 0, closedCount: 0, totalCount: 0, mergeRate: 0, isFirstContribution: false });
+async function loadAuthorStats(db: DbClient, handles: string[]): Promise<Map<string, AuthorStats>> {
+  const authors = new Map<string, AuthorStats>();
+  const unique = [...new Set(handles)];
+  for (let i = 0; i < unique.length; i += 80) {
+    const batch = unique.slice(i, i + 80);
+    const rows = await db.all<{ author: string; state: string; cnt: number }>(`
+      SELECT author, state, COUNT(*) AS cnt FROM pull_requests
+      WHERE author_handle IN (${batch.map(() => '?').join(',')}) GROUP BY author, state
+    `, batch);
+    for (const row of rows) {
+      const stats = authors.get(row.author) ?? { openCount: 0, mergedCount: 0, closedCount: 0, totalCount: 0, mergeRate: 0, isFirstContribution: false };
+      if (row.state === 'open') stats.openCount = row.cnt;
+      else if (row.state === 'merged') stats.mergedCount = row.cnt;
+      else if (row.state === 'closed') stats.closedCount = row.cnt;
+      authors.set(row.author, stats);
     }
-    const s = authorMap.get(r.author)!;
-    if (r.state === 'open') s.openCount = r.cnt;
-    else if (r.state === 'merged') s.mergedCount = r.cnt;
-    else if (r.state === 'closed') s.closedCount = r.cnt;
   }
-  for (const [, s] of authorMap) {
-    s.totalCount = s.openCount + s.mergedCount + s.closedCount;
-    const decided = s.mergedCount + s.closedCount;
-    s.mergeRate = decided > 0 ? s.mergedCount / decided : 0;
-    s.isFirstContribution = s.totalCount === 1;
+  for (const stats of authors.values()) {
+    stats.totalCount = stats.openCount + stats.mergedCount + stats.closedCount;
+    const decided = stats.mergedCount + stats.closedCount;
+    stats.mergeRate = decided > 0 ? stats.mergedCount / decided : 0;
+    stats.isFirstContribution = stats.totalCount === 1;
   }
-  return authorMap;
+  return authors;
 }
 
 /** Create API routes with an injected DB client — no Node.js imports */
@@ -173,7 +171,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
       params.push(state);
     }
     if (author) {
-      conditions.push('COALESCE(pr.author_handle, LOWER(pr.author)) = ?');
+      conditions.push('pr.author_handle = ?');
       params.push(normalizeGitHubHandle(author));
     }
 
@@ -183,28 +181,22 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
 
     let candidates = rows.map(buildCandidate);
 
-    // Batch queries for bonus signals
-    const [authorStatRows, testFileRows, tpRows, issueRows] = await Promise.all([
-      db.all<{ author: string; state: string; cnt: number }>('SELECT author, state, COUNT(*) as cnt FROM pull_requests GROUP BY author, state'),
-      db.all<{ pr_number: number }>(`SELECT DISTINCT pr_number FROM pr_files WHERE ${TEST_FILE_SQL}`),
-      db.all<{ number: number }>(`SELECT number FROM pull_requests WHERE ${THINKING_PATH_SQL}`),
-      db.all<{ number: number }>(`SELECT number FROM pull_requests WHERE ${ISSUE_LINK_SQL}`),
-    ]);
-
-    const authorMap = buildAuthorMap(authorStatRows);
-    const prsWithTests = new Set(testFileRows.map(r => r.pr_number));
-    const prsWithThinkingPath = new Set(tpRows.map(r => r.number));
-    const prsWithIssueLink = new Set(issueRows.map(r => r.number));
+    // Preserve the existing case-sensitive scoring groups and live source
+    // counts, even while contributor summaries are being refreshed by sync.
+    const authorStats = await loadAuthorStats(db, candidates.map(candidate => candidate.authorHandle));
     const now = Date.now();
 
-    // Enrich candidates with all scoring signals
-    for (const c of candidates as any[]) {
-      const stats = authorMap.get(c.author) || { openCount: 0, mergedCount: 0, closedCount: 0, totalCount: 0, mergeRate: 0, isFirstContribution: true };
+    // Signals are evaluated only for the selected PRs. Author lookups and test
+    // files use existing indexes; body checks reuse the selected row.
+    for (let i = 0; i < candidates.length; i++) {
+      const c: any = candidates[i];
+      const row = rows[i];
+      const stats = authorStats.get(c.author) ?? { openCount: 0, mergedCount: 0, closedCount: 0, totalCount: 0, mergeRate: 0, isFirstContribution: true };
       const contrib = computeContributorScore(stats);
       const cPts = contributorPts(contrib.score);
-      const tPts = testPts(prsWithTests.has(c.number));
-      const tpPts = thinkingPathPts(prsWithThinkingPath.has(c.number));
-      const ilPts = issueLinkPts(prsWithIssueLink.has(c.number));
+      const tPts = testPts(Boolean(row.has_tests));
+      const tpPts = thinkingPathPts(Boolean(row.has_thinking_path));
+      const ilPts = issueLinkPts(Boolean(row.has_issue_link));
       const fresh = freshnessPts(c.createdAt, now);
 
       c.contributorPts = cPts;
@@ -281,27 +273,13 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
       review: JSON.parse(r.review_json),
     }));
 
-    // Contributor stats
-    const authorRows = await db.all<{ state: string }>(
-      'SELECT state FROM pull_requests WHERE author = ?', [candidate.author]
-    );
-    const openCount = authorRows.filter(r => r.state === 'open').length;
-    const mergedCount = authorRows.filter(r => r.state === 'merged').length;
-    const closedCount = authorRows.filter(r => r.state === 'closed').length;
-    const totalCount = authorRows.length;
-    const decided = mergedCount + closedCount;
-    const mergeRate = decided > 0 ? mergedCount / decided : 0;
-    const isFirstContribution = totalCount === 1;
-
-    const authorStats: AuthorStats = { openCount, mergedCount, closedCount, totalCount, mergeRate, isFirstContribution };
+    const authorMap = await loadAuthorStats(db, [candidate.authorHandle]);
+    const authorStats = authorMap.get(candidate.author) ?? { openCount: 0, mergedCount: 0, closedCount: 0, totalCount: 0, mergeRate: 0, isFirstContribution: false };
     const contributor = computeContributorScore(authorStats);
     const cPts = contributorPts(contributor.score);
 
     // Bonus signals
-    const testFiles = await db.get<{ cnt: number }>(
-      `SELECT COUNT(*) as cnt FROM pr_files WHERE pr_number = ? AND (${TEST_FILE_SQL})`, [prNumber]
-    );
-    const hasTests = (testFiles?.cnt ?? 0) > 0;
+    const hasTests = Boolean(row.has_tests);
     const body = (pr as any)?.body ?? '';
     const hasThinkingPath = detectThinkingPath(body);
     const hasIssueLink = detectIssueLink(body);
@@ -428,38 +406,11 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     );
     if (!pr) return c.json({ error: 'PR not found' }, 404);
 
-    const others = await db.all<{ number: number; title: string; body: string | null; author: string; author_handle: string | null; created_at: string; greptile_score: number | null; total_checks: number; failed_checks: number; pending_checks: number; human_comments: number; additions: number | null; deletions: number | null; mergeable: number | null; mergeable_state: string | null }>(
-      `SELECT pr.number, pr.title, pr.body, pr.author, COALESCE(pr.author_handle, LOWER(pr.author)) as author_handle, pr.created_at,
-        pr.additions, pr.deletions, pr.mergeable, pr.mergeable_state,
-        (SELECT MAX(gs.confidence_score) FROM greptile_scores gs WHERE gs.pr_number = pr.number) as greptile_score,
-        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number) as total_checks,
-        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status = 'completed' AND cr.conclusion NOT IN ('success', 'skipped', 'neutral')) as failed_checks,
-        (SELECT COUNT(*) FROM check_runs cr WHERE cr.pr_number = pr.number AND cr.status != 'completed') as pending_checks,
-        (SELECT COUNT(*) FROM pr_comments pc WHERE pc.pr_number = pr.number AND pc.author NOT LIKE '%[bot]') as human_comments
-      FROM pull_requests pr WHERE pr.number != ?`, [prNumber]
+    // Rank using text first. Scoring metadata and file overlap cannot change
+    // the ranking, so load those indexed rows only for the eight results.
+    const others = await db.all<{ number: number; title: string; body: string | null; author: string; author_handle: string; created_at: string }>(
+      'SELECT number, title, body, author, author_handle, created_at FROM pull_requests WHERE number != ? ORDER BY number', [prNumber]
     );
-
-    const srcFiles = await db.all<{ filename: string }>(
-      'SELECT filename FROM pr_files WHERE pr_number = ?', [prNumber]
-    );
-    const srcFileSet = new Set(srcFiles.map(f => f.filename));
-    const srcDirSet = new Set(srcFiles.flatMap(f => extractDirs(f.filename)));
-
-    const allFiles = await db.all<{ pr_number: number; filename: string }>(
-      'SELECT pr_number, filename FROM pr_files WHERE pr_number != ?', [prNumber]
-    );
-    const filesByPR = new Map<number, Set<string>>();
-    const dirsByPR = new Map<number, Set<string>>();
-    for (const f of allFiles) {
-      if (!filesByPR.has(f.pr_number)) {
-        filesByPR.set(f.pr_number, new Set());
-        dirsByPR.set(f.pr_number, new Set());
-      }
-      filesByPR.get(f.pr_number)!.add(f.filename);
-      for (const dir of extractDirs(f.filename)) {
-        dirsByPR.get(f.pr_number)!.add(dir);
-      }
-    }
 
     const srcTitleWords = new Set(tokenize(pr.title));
     const srcBodyWords = tokenize(pr.body || '');
@@ -488,14 +439,6 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         bodySim = jaccard(srcBodyBigrams, otherBodyBigrams);
       }
 
-      const otherFileSet = filesByPR.get(other.number) || new Set<string>();
-      const fileSim = jaccard(srcFileSet, otherFileSet);
-
-      let sharedFiles = 0;
-      for (const f of srcFileSet) {
-        if (otherFileSet.has(f)) sharedFiles++;
-      }
-
       // Score by text only — file overlap is displayed but doesn't affect ranking
       const overall = titleSim * 0.4 + bodySim * 0.6;
 
@@ -513,33 +456,47 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         relationship = 'similar topic';
       }
 
-      const otherCiStatus = deriveCIStatus(other.total_checks, other.failed_checks, other.pending_checks);
-      const otherHasConflicts = other.mergeable === 0 || other.mergeable_state === 'dirty';
-      const prScore = computeBaseScore(other.greptile_score, otherCiStatus, otherHasConflicts, other.human_comments, other.additions ?? 0, other.deletions ?? 0);
-
       simResults.push({
         number: other.number,
         title: other.title,
         author: other.author,
         authorHandle: normalizeGitHubHandle(other.author_handle ?? other.author),
         created_at: other.created_at,
-        score: prScore,
+        score: 0,
         titleSimilarity: Math.round(titleSim * 100) / 100,
         bodySimilarity: Math.round(bodySim * 100) / 100,
-        fileSimilarity: Math.round(fileSim * 100) / 100,
+        fileSimilarity: 0,
         overallScore: Math.round(overall * 100) / 100,
-        sharedFiles,
+        sharedFiles: 0,
         potentialCopy,
         relationship,
       });
     }
 
     simResults.sort((a, b) => b.overallScore - a.overallScore);
-
-    return c.json({
-      pr: prNumber,
-      similar: simResults.slice(0, 8),
-    });
+    const similar = simResults.slice(0, 8);
+    if (similar.length) {
+      const numbers = similar.map(item => item.number);
+      const placeholders = numbers.map(() => '?').join(',');
+      const metadata = await db.all(`${PR_SELECT} WHERE pr.number IN (${placeholders})`, numbers);
+      const scores = new Map(metadata.map(row => [row.number, buildCandidate(row).compositeScore]));
+      const files = await db.all<{ pr_number: number; filename: string }>(
+        `SELECT pr_number, filename FROM pr_files WHERE pr_number IN (?, ${placeholders})`, [prNumber, ...numbers],
+      );
+      const filesByPR = new Map<number, Set<string>>();
+      for (const file of files) {
+        if (!filesByPR.has(file.pr_number)) filesByPR.set(file.pr_number, new Set());
+        filesByPR.get(file.pr_number)!.add(file.filename);
+      }
+      const source = filesByPR.get(prNumber) ?? new Set<string>();
+      for (const item of similar) {
+        const other = filesByPR.get(item.number) ?? new Set<string>();
+        item.score = scores.get(item.number) ?? 0;
+        item.fileSimilarity = Math.round(jaccard(source, other) * 100) / 100;
+        item.sharedFiles = [...source].filter(file => other.has(file)).length;
+      }
+    }
+    return c.json({ pr: prNumber, similar });
   });
 
   // List unique labels across all PRs
@@ -600,7 +557,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         (SELECT COALESCE(pc.author_handle, LOWER(pc.author)) FROM pr_comments pc WHERE pc.pr_number = pr.number ORDER BY pc.created_at DESC, pc.comment_id DESC LIMIT 1) as latest_comment_author_handle,
         (SELECT pc.body FROM pr_comments pc WHERE pc.pr_number = pr.number ORDER BY pc.created_at DESC, pc.comment_id DESC LIMIT 1) as latest_comment_body
       FROM pull_requests pr
-      WHERE COALESCE(pr.author_handle, LOWER(pr.author)) = ?
+      WHERE pr.author_handle = ?
       ORDER BY pr.updated_at DESC, pr.number DESC
       LIMIT 40
     `, [handle]);
@@ -617,7 +574,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
         pr.title as pr_title
       FROM pr_comments pc
       JOIN pull_requests pr ON pr.number = pc.pr_number
-      WHERE COALESCE(pc.author_handle, LOWER(pc.author)) = ?
+      WHERE pc.author_handle = ?
       ORDER BY pc.created_at DESC, pc.comment_id DESC
       LIMIT 8
     `, [handle]);

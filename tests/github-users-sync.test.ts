@@ -233,4 +233,103 @@ describe('syncPullRequests github users', () => {
     expect(await db.all('SELECT * FROM github_users ORDER BY handle')).toEqual(users);
     expect(await db.get('SELECT state FROM pull_requests WHERE number = 4')).toEqual({ state: 'merged' });
   });
+
+  test.each(['open', 'closed', 'closed-in-history'])('replays a partial REST batch when the PR is now %s', async state => {
+    mockState.octokit.rest.search.issuesAndPullRequests.mockReset();
+    mockState.octokit.rest.search.issuesAndPullRequests.mockResolvedValue({ data: { total_count: 1 } });
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success')");
+    // Emulate REST D1, where runBatch applies statements sequentially. Fail
+    // after the PR upsert but before its comments/files have been stored.
+    let failed = false;
+    const spy = vi.spyOn(db, 'runBatch').mockImplementation(async statements => {
+      for (const statement of statements) {
+        const failComment = state === 'open' && statement.sql.includes('INSERT INTO pr_comments') && statement.params[0] === 201;
+        const failFile = state !== 'open' && statement.sql.includes('INSERT INTO pr_files') && statement.params[0] === 1;
+        if (!failed && (failComment || failFile)) {
+          failed = true;
+          throw new Error('interrupted REST batch');
+        }
+        await db.run(statement.sql, statement.params);
+      }
+    });
+    await expect(syncPullRequests()).rejects.toThrow('Sync incomplete');
+    expect(await db.get('SELECT updated_at FROM pull_requests WHERE number=1'))
+      .toEqual({ updated_at: '2026-04-01T10:00:00Z' });
+    if (state === 'open') expect(await db.get('SELECT comment_id FROM pr_comments WHERE comment_id=201')).toBeNull();
+    else expect(await db.all('SELECT filename FROM pr_files WHERE pr_number=1')).toEqual([]);
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .toEqual({ value: 'previous-success' });
+    expect(await db.get("SELECT key FROM sync_state WHERE key='pending_pr:1'"))
+      .toEqual({ key: 'pending_pr:1' });
+    spy.mockRestore();
+    if (state !== 'open') {
+      const paginate = mockState.octokit.paginate.getMockImplementation()!;
+      const prs = await paginate(mockState.pullsList, { state: 'open' });
+      mockState.octokit.paginate.mockImplementation(async (endpoint: unknown, params: any) => {
+        if (endpoint === mockState.pullsList && params.state === 'open') return prs.filter((pr: any) => pr.number !== 1);
+        if (endpoint === mockState.pullsList && params.state === 'closed' && state === 'closed-in-history') {
+          return [{ ...prs[0], merged_at: '2026-04-01T15:00:00Z' }];
+        }
+        return paginate(endpoint, params);
+      });
+      const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+      mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+        if (params.pull_number === 1) return { data: { ...prs[0], state: 'closed', merged: true, mergeable: true, mergeable_state: 'clean' } };
+        return get(params);
+      });
+    }
+    if (state === 'closed-in-history') {
+      // Fail full replay once more. The lightweight closed-history pass must
+      // not erase the durable marker for still-missing files.
+      const retry = vi.spyOn(db, 'runBatch').mockImplementation(async statements => {
+        for (const statement of statements) {
+          if (statement.sql.includes('INSERT INTO pr_files') && statement.params[0] === 1) throw new Error('retry interrupted');
+          await db.run(statement.sql, statement.params);
+        }
+      });
+      await expect(syncPullRequests()).rejects.toThrow('Sync incomplete');
+      expect(await db.get("SELECT key FROM sync_state WHERE key='pending_pr:1'"))
+        .toEqual({ key: 'pending_pr:1' });
+      expect(await db.all('SELECT filename FROM pr_files WHERE pr_number=1')).toEqual([]);
+      expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+        .toEqual({ value: 'previous-success' });
+      retry.mockRestore();
+    }
+    await syncPullRequests();
+    expect(await db.get('SELECT comment_id FROM pr_comments WHERE comment_id=201'))
+      .toEqual({ comment_id: 201 });
+    expect(await db.get("SELECT key FROM sync_state WHERE key='pending_pr:1'")).toBeNull();
+    expect(await db.all('SELECT filename FROM pr_files WHERE pr_number=1'))
+      .toEqual([{ filename: 'src/web/routes.ts' }]);
+    expect(await db.get('SELECT state FROM pull_requests WHERE number=1'))
+      .toEqual({ state: state === 'open' ? 'open' : 'merged' });
+    expect(await db.get("SELECT comment_count FROM github_users WHERE handle='alice'"))
+      .toEqual({ comment_count: 2 });
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .not.toEqual({ value: 'previous-success' });
+  });
+
+  test('retries aggregate failures even when every PR is unchanged, without advancing success early', async () => {
+    mockState.octokit.rest.search.issuesAndPullRequests.mockReset();
+    mockState.octokit.rest.search.issuesAndPullRequests.mockResolvedValue({ data: { total_count: 1 } });
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success')");
+    const run = db.run.bind(db);
+    const spy = vi.spyOn(db, 'run').mockImplementation(async (sql, params) => {
+      if (sql.includes('INSERT INTO github_users')) throw new Error('aggregate interrupted');
+      return run(sql, params);
+    });
+    await expect(syncPullRequests()).rejects.toThrow('aggregate interrupted');
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .toEqual({ value: 'previous-success' });
+    spy.mockRestore();
+    mockState.octokit.rest.pulls.get.mockClear();
+    await syncPullRequests();
+    expect(mockState.octokit.rest.pulls.get).not.toHaveBeenCalled();
+    expect(await db.get("SELECT comment_count FROM github_users WHERE handle='alice'"))
+      .toEqual({ comment_count: 2 });
+    expect(await db.all("SELECT key FROM sync_state WHERE key >= 'pending_user:' AND key < 'pending_user;'"))
+      .toEqual([]);
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .not.toEqual({ value: 'previous-success' });
+  });
 });
