@@ -1,0 +1,225 @@
+{
+  "baselineCommit": "3dec1213066c61d9535c45bae6c0b49c2ab8a246",
+  "sourceAtStart": {
+    "src/web/routes.ts": "d11864d72d565bf4be47e04308f4b79382f5a4cd19bf1ac9c518664dc31de54f",
+    "src/web/read-cache.ts": "4912dae21c0c9f80a49bedd077d1296611e6fcd10eca78f057640ff96990e45f",
+    "src/github/users.ts": "a5a00f71bddefae3ccc29c42d755f98e129a12608d38f6174b5ed86d5d2c06f1",
+    "src/github/sync-refresh.ts": "a89ae6964c546e5d6b4b680f7e633511882068f8de677f1ca0e81fac8d1f3055"
+  },
+  "sourceAtEnd": {
+    "src/web/routes.ts": "d11864d72d565bf4be47e04308f4b79382f5a4cd19bf1ac9c518664dc31de54f",
+    "src/web/read-cache.ts": "4912dae21c0c9f80a49bedd077d1296611e6fcd10eca78f057640ff96990e45f",
+    "src/github/users.ts": "a5a00f71bddefae3ccc29c42d755f98e129a12608d38f6174b5ed86d5d2c06f1",
+    "src/github/sync-refresh.ts": "a89ae6964c546e5d6b4b680f7e633511882068f8de677f1ca0e81fac8d1f3055"
+  },
+  "sourcesStableDuringRun": true,
+  "fixture": {
+    "prs": 11000,
+    "comments": 25000,
+    "files": 165000,
+    "contributors": 1499,
+    "openPRs": 3500,
+    "edgeCases": [
+      "mixed-case author",
+      "one temporarily missing contributor summary"
+    ]
+  },
+  "fixedNow": "2026-10-02T12:00:00.000Z",
+  "caveats": [
+    "Local SQLite row visits, not Cloudflare billed rows.",
+    "readWorkProxy adds fast COUNT(*) table cardinalities, which scanstatus does not report.",
+    "Timings are single local runs, not Worker CPU measurements.",
+    "Warm application-cache behavior is tested separately; these are uncached route costs."
+  ],
+  "results": {
+    "list": {
+      "before": {
+        "queries": 5,
+        "scanRows": 246875,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 246875,
+        "elapsedMs": 123.58
+      },
+      "after": {
+        "queries": 14,
+        "scanRows": 96051,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 96051,
+        "elapsedMs": 58.02
+      },
+      "identicalJson": true
+    },
+    "authorList": {
+      "before": {
+        "queries": 5,
+        "scanRows": 209090,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 209090,
+        "elapsedMs": 71.24
+      },
+      "after": {
+        "queries": 2,
+        "scanRows": 221,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 221,
+        "elapsedMs": 0.87
+      },
+      "identicalJson": true
+    },
+    "mixedCaseAuthor": {
+      "before": {
+        "queries": 5,
+        "scanRows": 209085,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 209085,
+        "elapsedMs": 69.62
+      },
+      "after": {
+        "queries": 2,
+        "scanRows": 230,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 230,
+        "elapsedMs": 1.47
+      },
+      "identicalJson": true
+    },
+    "missingSummary": {
+      "before": {
+        "queries": 5,
+        "scanRows": 209085,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 209085,
+        "elapsedMs": 71.37
+      },
+      "after": {
+        "queries": 2,
+        "scanRows": 216,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 216,
+        "elapsedMs": 0.7
+      },
+      "identicalJson": true
+    },
+    "detail": {
+      "before": {
+        "queries": 7,
+        "scanRows": 11024,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 11024,
+        "elapsedMs": 2.86
+      },
+      "after": {
+        "queries": 6,
+        "scanRows": 35,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 35,
+        "elapsedMs": 0.85
+      },
+      "identicalJson": true
+    },
+    "profile": {
+      "before": {
+        "queries": 3,
+        "scanRows": 36118,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 36118,
+        "elapsedMs": 3.08
+      },
+      "after": {
+        "queries": 3,
+        "scanRows": 146,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 146,
+        "elapsedMs": 0.86
+      },
+      "identicalJson": true
+    },
+    "stats": {
+      "before": {
+        "queries": 8,
+        "scanRows": 6803,
+        "fastCountCardinality": 36000,
+        "readWorkProxy": 42803,
+        "elapsedMs": 0.62
+      },
+      "after": {
+        "queries": 8,
+        "scanRows": 6803,
+        "fastCountCardinality": 36000,
+        "readWorkProxy": 42803,
+        "elapsedMs": 0.62
+      },
+      "identicalJson": true
+    },
+    "similar": {
+      "before": {
+        "queries": 4,
+        "scanRows": 224763,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 224763,
+        "elapsedMs": 166.9
+      },
+      "after": {
+        "queries": 4,
+        "scanRows": 11326,
+        "fastCountCardinality": 0,
+        "readWorkProxy": 11326,
+        "elapsedMs": 55.43
+      },
+      "identicalJson": true,
+      "identicalRanking": true
+    },
+    "fullRefresh": {
+      "queries": 4,
+      "scanRows": 236501,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 236501,
+      "elapsedMs": 31.75
+    },
+    "targetedRefresh": {
+      "queries": 2,
+      "scanRows": 132,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 132,
+      "elapsedMs": 0.39
+    },
+    "unchangedRefresh": {
+      "queries": 0,
+      "scanRows": 0,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 0,
+      "elapsedMs": 0.06
+    },
+    "unchangedSyncRefresh": {
+      "queries": 2,
+      "scanRows": 1,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 1
+    },
+    "changedContributor": {
+      "identicalSummaries": true
+    },
+    "cache-cold": {
+      "queries": 15,
+      "scanRows": 96052,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 96052,
+      "state": "miss"
+    },
+    "cache-warm": {
+      "queries": 0,
+      "scanRows": 0,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 0,
+      "state": "hit"
+    },
+    "cache-revisionCheck": {
+      "queries": 1,
+      "scanRows": 1,
+      "fastCountCardinality": 0,
+      "readWorkProxy": 1,
+      "state": "hit"
+    },
+    "cacheParity": true
+  }
+}

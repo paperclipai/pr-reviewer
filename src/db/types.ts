@@ -9,7 +9,7 @@ export interface DbClient {
   run(sql: string, params?: any[]): Promise<void>;
   get<T = any>(sql: string, params?: any[]): Promise<T | null>;
   all<T = any>(sql: string, params?: any[]): Promise<T[]>;
-  /** Execute multiple statements in a single round-trip (D1) or transaction (SQLite) */
+  /** Execute statements in order. REST D1 is sequential; callers must not assume atomicity. */
   runBatch(statements: BatchStatement[]): Promise<void>;
   exec(sql: string): Promise<void>;
   close(): Promise<void>;
