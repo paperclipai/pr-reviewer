@@ -166,7 +166,8 @@ export async function rebuildGitHubUsers(db: DbClient, handles?: string[]): Prom
   if (handles) {
     handles = [...new Set(handles.map(normalizeGitHubHandle).filter(Boolean))];
     if (!handles.length) return;
-    // D1 limits bound parameters per statement. Keep each refresh below 100.
+    // D1 allows 100 bound parameters per statement. VALUES also avoids its
+    // compound-SELECT limit, which a SELECT ? UNION ... list can exceed.
     if (handles.length > 80) {
       for (let i = 0; i < handles.length; i += 80) {
         await rebuildGitHubUsers(db, handles.slice(i, i + 80));
@@ -208,7 +209,7 @@ export async function rebuildGitHubUsers(db: DbClient, handles?: string[]): Prom
       updated_at
     )
     WITH author_handles(handle) AS (
-      ${handles ? handles.map(() => 'SELECT ?').join(' UNION ') : `SELECT author_handle AS handle
+      ${handles ? `VALUES ${handles.map(() => '(?)').join(', ')}` : `SELECT author_handle AS handle
       FROM pull_requests
       WHERE COALESCE(author_handle, '') != ''
       UNION

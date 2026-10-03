@@ -42,11 +42,21 @@ queued, and `last_sync_at` advances only after the entire sync succeeds. The
 existing workflow serializes sync jobs; other callers must also use a single sync
 writer per database.
 
+Contributor refresh uses a parameterized `VALUES` list in batches of at most 80
+handles, below D1's 100-parameter limit and without a compound `SELECT` per handle.
+If a cached historical PR's detail lookup returns HTTP 404, sync preserves its
+data and pending replay marker and retries it on the next scheduled run. A 404
+can mean inaccessible, not necessarily deleted or closed. These gaps are logged,
+listed as `unavailablePRs` in `/api/stats`, and counted in the dashboard. A run with
+only these gaps exits successfully with a warning but does **not** advance the
+last complete-sync time. Other errors, including 404s on current PRs or their
+comments/files/checks, still fail the sync. No schema migration is needed.
+
 The first sync with this implementation performs one full contributor repair and
 stores `incremental_users_version=1`. Later unchanged syncs read only queue/marker
 rows for this stage. This adds no tables, columns, indexes, or schema-version
 migration; it uses the normalized handles and indexes already created by schema
-version 2. Existing data, scoring rules, and response shapes are preserved.
+version 2. Existing data and scoring rules are preserved.
 
 The Worker caches successful public API GET responses per database binding and
 Worker isolate. It checks `last_sync_at` at most once per minute and clears cached

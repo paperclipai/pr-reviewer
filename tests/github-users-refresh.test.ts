@@ -82,4 +82,33 @@ describe('contributor refresh write usage', () => {
     await expect(rebuildGitHubUsers(db)).rejects.toThrow('D1 write quota exceeded');
     expect(await db.all('SELECT * FROM github_users ORDER BY handle')).toEqual(users);
   });
+
+  test('refreshes more than a D1 batch of contributors, deduplicating handles and preserving unrelated summaries', async () => {
+    await rebuildGitHubUsers(db);
+    const alice = await db.get("SELECT * FROM github_users WHERE handle = 'alice'");
+    const handles = Array.from({ length: 161 }, (_, i) => `reviewer-${i}`);
+    for (const [i, handle] of handles.entries()) {
+      await db.run(`INSERT INTO pr_comments
+        (comment_id, pr_number, author, author_handle, body, created_at, updated_at)
+        VALUES (?, 1, ?, ?, 'Review', '2026-02-01', '2026-02-01')`, [1000 + i, handle, handle]);
+    }
+    await db.run("INSERT INTO github_users(handle, display_handle, created_at, updated_at) VALUES ('removed', 'Removed', '2026-01-01', '2026-01-01')");
+    const run = vi.spyOn(db, 'run');
+    await rebuildGitHubUsers(db, [...handles, ' REVIEWER-0 ', '', 'removed']);
+    expect((await db.all("SELECT handle FROM github_users WHERE handle LIKE 'reviewer-%'")).length).toBe(161);
+    expect(await db.get("SELECT * FROM github_users WHERE handle='removed'")).toBeNull();
+    expect(await db.get("SELECT * FROM github_users WHERE handle='alice'")).toEqual(alice);
+    const inserts = run.mock.calls.filter(([sql]) => sql.includes('INSERT INTO github_users'));
+    expect(inserts.map(([, params]) => params?.length)).toEqual([80, 80, 2]);
+    // Guard D1's parameter cap and the compound-SELECT regression. SQLite's
+    // default compound limit is higher, so local execution alone missed it.
+    for (const [sql, params] of run.mock.calls) {
+      expect(params!.length).toBeLessThanOrEqual(100);
+      expect((sql.match(/\bUNION\b/g) ?? []).length).toBeLessThanOrEqual(1);
+      expect(Buffer.byteLength(sql)).toBeLessThan(100_000);
+    }
+    const before = await changes();
+    await rebuildGitHubUsers(db, handles);
+    expect(await changes() - before).toBe(0);
+  });
 });

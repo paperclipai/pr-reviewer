@@ -39,6 +39,7 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
   const token = randomUUID();
   const retryPRs = await pendingPRs(db);
   const incompletePRs = new Set<number>();
+  const unavailablePRs = new Set<number>();
   let failures = 0;
 
   console.log(chalk.blue('Fetching open pull requests...'));
@@ -282,10 +283,12 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
     const staleLimit = pLimit(10);
     let staleCompleted = 0;
     await Promise.all(toCheck.map(p => staleLimit(async () => {
+      let detailFetched = false;
       try {
         const { data } = await octokit.rest.pulls.get({
           owner: REPO_OWNER, repo: REPO_NAME, pull_number: p.number,
         });
+        detailFetched = true;
         if (retryPRs.has(p.number)) {
           // A previous REST batch may have stopped after saving updated_at or
           // deleting files. Replay every source write even if GitHub has since
@@ -294,21 +297,32 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
           return;
         }
         if (data.state === 'open') {
-          // PR is still open — pagination returned partial results, leave it alone
+          // The list missed a still-open PR. Do not call this a complete sync.
+          failures++;
+          incompletePRs.add(p.number);
+          console.error(chalk.yellow(`\nOpen PR #${p.number} was missing from the list; leaving it for retry`));
           return;
         }
         const newState = data.merged ? 'merged' : 'closed';
         await beginPRRefresh(db, p.number, [], token);
         await db.run(`UPDATE pull_requests SET state = ? WHERE number = ?`, [newState, p.number]);
         await finishPRRefresh(db, p.number, token);
-      } catch {
-        failures++;
+      } catch (err: any) {
         incompletePRs.add(p.number);
-        // API error — don't assume closed, leave state unchanged
-        console.error(chalk.yellow(`\nCould not verify PR #${p.number}, leaving state unchanged`));
+        if (!detailFetched && err?.status === 404) {
+          // GitHub may hide inaccessible PRs behind 404. Preserve the last
+          // known state and any durable replay marker; never assume deletion
+          // or closure. Only this historical detail lookup is tolerated.
+          unavailablePRs.add(p.number);
+          console.warn(chalk.yellow(`\nPR #${p.number} unavailable from GitHub (404); keeping cached data and retrying next sync`));
+        } else {
+          failures++;
+          console.error(chalk.yellow(`\nCould not verify PR #${p.number}, leaving state unchanged: ${err?.message ?? String(err)}`));
+        }
+      } finally {
+        staleCompleted++;
+        process.stdout.write(`\r  ${chalk.green(`${staleCompleted}/${toCheck.length}`)} checked`);
       }
-      staleCompleted++;
-      process.stdout.write(`\r  ${chalk.green(`${staleCompleted}/${toCheck.length}`)} checked`);
     })));
     console.log();
   }
@@ -398,12 +412,19 @@ export async function syncPullRequests(opts: SyncOptions = {}): Promise<void> {
   }
 
   await refreshPendingUsers(db);
+  await db.run(`INSERT INTO sync_state (key, value) VALUES ('unavailable_prs', ?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value
+    WHERE sync_state.value IS NOT excluded.value`, [JSON.stringify([...unavailablePRs].sort((a, b) => a - b))]);
   if (failures) throw new Error(`Sync incomplete: ${failures} operation(s) failed; pending PRs will be retried.`);
+  const synced = completed - skipped;
+  if (unavailablePRs.size) {
+    console.warn(chalk.yellow(`\nSync finished with gaps. ${synced} PRs synced, ${skipped} unchanged (skipped); ${unavailablePRs.size} historical PR(s) unavailable (404). Last complete-sync time unchanged; unavailable PRs will be retried.`));
+    return;
+  }
   await db.run(`
     INSERT INTO sync_state (key, value) VALUES ('last_sync_at', datetime('now'))
     ON CONFLICT(key) DO UPDATE SET value=datetime('now')
   `);
 
-  const synced = completed - skipped;
   console.log(chalk.green(`\nSync complete. ${synced} PRs synced, ${skipped} unchanged (skipped).`));
 }
