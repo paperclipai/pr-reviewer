@@ -635,6 +635,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
     const reviewed = await db.get<{ cnt: number }>('SELECT COUNT(DISTINCT pr_number) as cnt FROM llm_reviews');
     const comments = await db.get<{ cnt: number }>('SELECT COUNT(*) as cnt FROM pr_comments');
     const lastSync = await db.get<{ value: string }>("SELECT value FROM sync_state WHERE key = 'last_sync_at'");
+    const unavailable = await db.get<{ value: string }>("SELECT value FROM sync_state WHERE key = 'unavailable_prs'");
     const mergedCount = await db.get<{ value: string }>("SELECT value FROM sync_state WHERE key = 'merged_count'");
     const closedCount = await db.get<{ value: string }>("SELECT value FROM sync_state WHERE key = 'closed_count'");
 
@@ -647,6 +648,7 @@ export function createRoutes(getDb: () => Promise<DbClient>): Hono {
       llmReviewed: reviewed?.cnt ?? 0,
       totalComments: comments?.cnt ?? 0,
       lastSyncAt: lastSync?.value ?? null,
+      unavailablePRs: unavailable ? JSON.parse(unavailable.value) as number[] : [],
     });
   });
 

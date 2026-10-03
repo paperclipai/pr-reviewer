@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
 import { initializeDb } from '../src/db/bootstrap';
 import { SqliteClient } from '../src/db/sqlite';
 import type { DbClient } from '../src/db/types';
+import { createApp } from '../src/web/app';
 
 const mockState = vi.hoisted(() => {
   const pullsList = Symbol('pulls.list');
@@ -331,5 +332,107 @@ describe('syncPullRequests github users', () => {
       .toEqual([]);
     expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
       .not.toEqual({ value: 'previous-success' });
+  });
+
+  test('reports historical lookup 404s as gaps, preserves cached data/replay markers, and retries until recovered', async () => {
+    mockState.octokit.rest.search.issuesAndPullRequests.mockReset();
+    mockState.octokit.rest.search.issuesAndPullRequests.mockResolvedValue({ data: { total_count: 1 } });
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success'), ('pending_pr:3','retry-token')");
+    const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+    mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+      if (params.pull_number === 3) throw Object.assign(new Error('Not Found'), { status: 404 });
+      return get(params);
+    });
+    const before = await db.get('SELECT * FROM pull_requests WHERE number=3');
+    const warning = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await syncPullRequests();
+      expect(warning.mock.calls.flat().join('\n')).toContain('Sync finished with gaps');
+      expect(await db.get('SELECT * FROM pull_requests WHERE number=3')).toEqual(before);
+      expect(await db.get("SELECT value FROM sync_state WHERE key='pending_pr:3'"))
+        .toEqual({ value: 'retry-token' });
+      expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+        .toEqual({ value: 'previous-success' });
+      const app = createApp(async () => db, '<html></html>');
+      const response = await app.request('http://example.test/api/stats');
+      expect(await response.json()).toMatchObject({ lastSyncAt: 'previous-success', unavailablePRs: [3] });
+      await syncPullRequests();
+      expect(mockState.octokit.rest.pulls.get.mock.calls.filter(([p]: any[]) => p.pull_number === 3)).toHaveLength(2);
+      mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+        if (params.pull_number !== 3) return get(params);
+        return { data: { number: 3, title: 'Recovered PR', body: 'Body', user: { login: 'Alice' },
+          head: { sha: 'sha-old' }, labels: [], state: 'closed', merged: true, mergeable: true,
+          created_at: '2026-03-31T10:00:00Z', updated_at: '2026-04-02T10:00:00Z' } };
+      });
+      await syncPullRequests();
+      expect(await db.get('SELECT state FROM pull_requests WHERE number=3')).toEqual({ state: 'merged' });
+      expect(await db.get("SELECT value FROM sync_state WHERE key='pending_pr:3'")).toBeNull();
+      expect(await db.get("SELECT value FROM sync_state WHERE key='unavailable_prs'"))
+        .toEqual({ value: '[]' });
+      expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+        .not.toEqual({ value: 'previous-success' });
+    } finally { warning.mockRestore(); }
+  });
+
+  test.each([401, 403, 429, 500, undefined, '404'])('fails historical lookups with status %s instead of treating them as unavailable', async status => {
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success')");
+    const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+    mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+      if (params.pull_number === 3) throw Object.assign(new Error('404 text alone is not a status'), { status });
+      return get(params);
+    });
+    await expect(syncPullRequests()).rejects.toThrow('Sync incomplete');
+    expect(await db.get('SELECT state FROM pull_requests WHERE number=3')).toEqual({ state: 'open' });
+    expect(await db.get("SELECT value FROM sync_state WHERE key='unavailable_prs'"))
+      .toEqual({ value: '[]' });
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .toEqual({ value: 'previous-success' });
+  });
+
+  test.each(['current-detail', 'historical-comments', 'historical-write'])('does not tolerate 404 from %s', async source => {
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success')");
+    const notFound = Object.assign(new Error('Not Found'), { status: 404 });
+    if (source === 'current-detail') {
+      const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+      mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+        if (params.pull_number === 1) throw notFound;
+        return get(params);
+      });
+    } else if (source === 'historical-comments') {
+      await db.run("INSERT INTO sync_state(key,value) VALUES ('pending_pr:3','retry-token')");
+      const paginate = mockState.octokit.paginate.getMockImplementation()!;
+      mockState.octokit.paginate.mockImplementation(async (endpoint: unknown, params: any) => {
+        if (endpoint === mockState.listComments && params.issue_number === 3) throw notFound;
+        return paginate(endpoint, params);
+      });
+      const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+      mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+        if (params.pull_number === 3) return { data: { number: 3, head: { sha: 'sha-old' }, state: 'closed', merged: true } };
+        return get(params);
+      });
+    } else {
+      const run = db.run.bind(db);
+      vi.spyOn(db, 'run').mockImplementation(async (sql, params) => {
+        if (sql.startsWith('UPDATE pull_requests SET state')) throw notFound;
+        return run(sql, params);
+      });
+    }
+    await expect(syncPullRequests()).rejects.toThrow('Sync incomplete');
+    expect(await db.get("SELECT value FROM sync_state WHERE key='unavailable_prs'"))
+      .toEqual({ value: '[]' });
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .toEqual({ value: 'previous-success' });
+  });
+
+  test('does not report complete freshness when pagination misses a still-open PR', async () => {
+    await db.run("INSERT INTO sync_state(key,value) VALUES ('last_sync_at','previous-success')");
+    const get = mockState.octokit.rest.pulls.get.getMockImplementation()!;
+    mockState.octokit.rest.pulls.get.mockImplementation(async (params: any) => {
+      if (params.pull_number === 3) return { data: { state: 'open' } };
+      return get(params);
+    });
+    await expect(syncPullRequests()).rejects.toThrow('Sync incomplete');
+    expect(await db.get("SELECT value FROM sync_state WHERE key='last_sync_at'"))
+      .toEqual({ value: 'previous-success' });
   });
 });
